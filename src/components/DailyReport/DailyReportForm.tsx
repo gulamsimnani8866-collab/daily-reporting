@@ -49,7 +49,6 @@ export const DailyReportForm: React.FC<DailyReportFormProps> = ({ user, onReport
 
   const [existingReport, setExistingReport] = useState<DailyReport | null>(null);
   const [isEditMode, setIsEditMode] = useState(false);
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [successDetails, setSuccessDetails] = useState<SuccessDetails | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -112,7 +111,6 @@ export const DailyReportForm: React.FC<DailyReportFormProps> = ({ user, onReport
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
-    setSuccessMsg(null);
     setSuccessDetails(null);
 
     if (numCompleted < 0 || numReturned < 0 || numTotal < 0) {
@@ -156,12 +154,6 @@ export const DailyReportForm: React.FC<DailyReportFormProps> = ({ user, onReport
         submittedAtTime: nowTimeStr
       });
 
-      setSuccessMsg(
-        isUpdate
-          ? `Report for ${date} updated & synced! Total Amount: ₹${(report.earning || 0).toLocaleString('en-IN')}`
-          : `Report for ${date} submitted & synced! Total Amount: ₹${(report.earning || 0).toLocaleString('en-IN')}`
-      );
-
       onReportSubmitted();
     } catch (err: any) {
       setErrorMsg(err.message || 'Failed to save daily report to Firebase Database.');
@@ -174,7 +166,6 @@ export const DailyReportForm: React.FC<DailyReportFormProps> = ({ user, onReport
   const handleAbsentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
-    setSuccessMsg(null);
     setSuccessDetails(null);
 
     setIsSubmitting(true);
@@ -202,7 +193,6 @@ export const DailyReportForm: React.FC<DailyReportFormProps> = ({ user, onReport
         submittedAtTime: nowTimeStr
       });
 
-      setSuccessMsg(`Absent report for ${absentDate} saved & synced!`);
       setShowAbsentModal(false);
       onReportSubmitted();
     } catch (err: any) {

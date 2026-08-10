@@ -230,6 +230,20 @@ export const EditReportModal: React.FC<EditReportModalProps> = ({ report, onClos
             </div>
           </div>
 
+          <div>
+            <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '4px', display: 'block' }}>
+              Shift Notes / Remarks (Optional)
+            </label>
+            <input
+              type="text"
+              className="cyber-input"
+              style={{ minHeight: '38px', fontSize: '0.85rem' }}
+              placeholder="Add any notes..."
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+            />
+          </div>
+
           {/* Rate & Earning Preview */}
           <div style={{
             background: 'rgba(16, 185, 129, 0.08)',
