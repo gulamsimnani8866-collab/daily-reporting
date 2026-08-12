@@ -86,83 +86,90 @@ export const VerificationCard: React.FC<VerificationCardProps> = ({
       style={{
         background: 'var(--bg-secondary, #ffffff)',
         border: '1px solid var(--border-color, #e2e8f0)',
-        borderRadius: '16px',
-        padding: '20px',
+        borderRadius: '14px',
+        padding: '14px',
         boxShadow: '0 4px 20px rgba(0, 0, 0, 0.05)',
-        marginTop: '16px'
+        marginTop: '12px',
+        width: '100%',
+        boxSizing: 'border-box'
       }}
     >
       <div style={{
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        marginBottom: '16px',
-        paddingBottom: '12px',
+        marginBottom: '12px',
+        paddingBottom: '10px',
         borderBottom: '1px solid var(--border-color, #e2e8f0)',
         flexWrap: 'wrap',
-        gap: '8px'
+        gap: '6px'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
           <div style={{
-            padding: '8px',
-            borderRadius: '10px',
+            padding: '6px',
+            borderRadius: '8px',
             background: 'rgba(34, 197, 94, 0.12)',
-            color: '#16a34a'
+            color: '#16a34a',
+            flexShrink: 0
           }}>
-            <CheckCircle2 size={20} />
+            <CheckCircle2 size={18} />
           </div>
-          <div>
-            <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: 'var(--text-main, #1e293b)' }}>
-              Step 3: Verification & Parcel Confirmation
+          <div style={{ minWidth: 0 }}>
+            <h3 style={{ margin: 0, fontSize: '0.925rem', fontWeight: 700, color: 'var(--text-main, #1e293b)', lineHeight: 1.2 }}>
+              Verification & Parcel Confirmation
             </h3>
-            <p style={{ margin: '2px 0 0 0', fontSize: '0.75rem', color: 'var(--text-muted, #64748b)' }}>
-              Review extracted parcel numbers below. Edit fields if any number requires correction.
+            <p style={{ margin: '2px 0 0 0', fontSize: '0.7rem', color: 'var(--text-muted, #64748b)' }}>
+              Review extracted numbers. Edit if needed.
             </p>
           </div>
         </div>
 
         <span style={{
-          fontSize: '0.725rem',
-          padding: '4px 10px',
+          fontSize: '0.675rem',
+          padding: '3px 8px',
           borderRadius: '9999px',
           background: 'rgba(59, 130, 246, 0.1)',
           color: '#2563eb',
           fontWeight: 600,
           display: 'inline-flex',
           alignItems: 'center',
-          gap: '4px'
+          gap: '4px',
+          flexShrink: 0
         }}>
-          <Sparkles size={12} />
+          <Sparkles size={11} />
           OCR Extracted
         </span>
       </div>
 
       <form onSubmit={handleSubmit}>
-        {/* Verification Inputs Grid */}
+        {/* Responsive Mobile-Compact Verification Inputs Grid */}
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
-          gap: '12px',
-          marginBottom: '16px'
+          gridTemplateColumns: 'repeat(auto-fit, minmax(95px, 1fr))',
+          gap: '8px',
+          marginBottom: '12px'
         }}>
           {/* Total Parcels Field */}
           <div style={{
             background: 'var(--bg-main, #f8fafc)',
-            padding: '12px',
-            borderRadius: '12px',
-            border: '1px solid var(--border-color, #e2e8f0)'
+            padding: '10px 8px',
+            borderRadius: '10px',
+            border: '1px solid var(--border-color, #e2e8f0)',
+            textAlign: 'center'
           }}>
             <label style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '6px',
-              fontSize: '0.75rem',
-              fontWeight: 600,
+              justifyContent: 'center',
+              gap: '4px',
+              fontSize: '0.7rem',
+              fontWeight: 700,
               color: 'var(--text-muted, #64748b)',
-              marginBottom: '6px'
+              marginBottom: '4px',
+              whiteSpace: 'nowrap'
             }}>
-              <Package size={14} className="text-blue-500" />
-              Total Parcels
+              <Package size={13} className="text-blue-500" />
+              Total
             </label>
             <input
               type="number"
@@ -172,13 +179,15 @@ export const VerificationCard: React.FC<VerificationCardProps> = ({
               placeholder="0"
               style={{
                 width: '100%',
-                padding: '8px 10px',
-                borderRadius: '8px',
+                padding: '6px 4px',
+                borderRadius: '6px',
                 border: '1px solid var(--border-color, #cbd5e1)',
-                fontSize: '1.1rem',
-                fontWeight: 700,
+                fontSize: '1.05rem',
+                fontWeight: 800,
                 color: 'var(--text-main, #1e293b)',
-                background: '#fff'
+                background: '#fff',
+                textAlign: 'center',
+                boxSizing: 'border-box'
               }}
             />
           </div>
@@ -186,20 +195,23 @@ export const VerificationCard: React.FC<VerificationCardProps> = ({
           {/* Completed Parcels Field */}
           <div style={{
             background: 'rgba(34, 197, 94, 0.04)',
-            padding: '12px',
-            borderRadius: '12px',
-            border: '1px solid rgba(34, 197, 94, 0.2)'
+            padding: '10px 8px',
+            borderRadius: '10px',
+            border: '1px solid rgba(34, 197, 94, 0.2)',
+            textAlign: 'center'
           }}>
             <label style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '6px',
-              fontSize: '0.75rem',
-              fontWeight: 600,
+              justifyContent: 'center',
+              gap: '4px',
+              fontSize: '0.7rem',
+              fontWeight: 700,
               color: '#16a34a',
-              marginBottom: '6px'
+              marginBottom: '4px',
+              whiteSpace: 'nowrap'
             }}>
-              <PackageCheck size={14} />
+              <PackageCheck size={13} />
               Completed
             </label>
             <input
@@ -210,13 +222,15 @@ export const VerificationCard: React.FC<VerificationCardProps> = ({
               placeholder="0"
               style={{
                 width: '100%',
-                padding: '8px 10px',
-                borderRadius: '8px',
+                padding: '6px 4px',
+                borderRadius: '6px',
                 border: '1px solid rgba(34, 197, 94, 0.4)',
-                fontSize: '1.1rem',
-                fontWeight: 700,
+                fontSize: '1.05rem',
+                fontWeight: 800,
                 color: '#15803d',
-                background: '#fff'
+                background: '#fff',
+                textAlign: 'center',
+                boxSizing: 'border-box'
               }}
             />
           </div>
@@ -224,21 +238,24 @@ export const VerificationCard: React.FC<VerificationCardProps> = ({
           {/* Returned Parcels Field */}
           <div style={{
             background: 'rgba(239, 68, 68, 0.04)',
-            padding: '12px',
-            borderRadius: '12px',
-            border: '1px solid rgba(239, 68, 68, 0.2)'
+            padding: '10px 8px',
+            borderRadius: '10px',
+            border: '1px solid rgba(239, 68, 68, 0.2)',
+            textAlign: 'center'
           }}>
             <label style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '6px',
-              fontSize: '0.75rem',
-              fontWeight: 600,
+              justifyContent: 'center',
+              gap: '4px',
+              fontSize: '0.7rem',
+              fontWeight: 700,
               color: '#dc2626',
-              marginBottom: '6px'
+              marginBottom: '4px',
+              whiteSpace: 'nowrap'
             }}>
-              <RotateCcw size={14} />
-              Returned / RTO
+              <RotateCcw size={13} />
+              Returned
             </label>
             <input
               type="number"
@@ -248,48 +265,49 @@ export const VerificationCard: React.FC<VerificationCardProps> = ({
               placeholder="0"
               style={{
                 width: '100%',
-                padding: '8px 10px',
-                borderRadius: '8px',
+                padding: '6px 4px',
+                borderRadius: '6px',
                 border: '1px solid rgba(239, 68, 68, 0.3)',
-                fontSize: '1.1rem',
-                fontWeight: 700,
+                fontSize: '1.05rem',
+                fontWeight: 800,
                 color: '#b91c1c',
-                background: '#fff'
+                background: '#fff',
+                textAlign: 'center',
+                boxSizing: 'border-box'
               }}
             />
           </div>
         </div>
 
-        {/* Dynamic Provisional Earnings Banner */}
+        {/* Dynamic Mobile Compact Earnings Banner */}
         <div style={{
           background: 'linear-gradient(135deg, rgba(37, 99, 235, 0.08) 0%, rgba(99, 102, 241, 0.1) 100%)',
-          borderRadius: '12px',
-          padding: '12px 16px',
+          borderRadius: '10px',
+          padding: '10px 12px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          marginBottom: '16px',
+          marginBottom: '12px',
           border: '1px solid rgba(37, 99, 235, 0.15)',
-          flexWrap: 'wrap',
           gap: '8px'
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Calculator size={18} style={{ color: '#2563eb' }} />
-            <div>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted, #64748b)', fontWeight: 500 }}>
-                Calculated Earnings Rate:
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
+            <Calculator size={16} style={{ color: '#2563eb', flexShrink: 0 }} />
+            <div style={{ minWidth: 0 }}>
+              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted, #64748b)', fontWeight: 500, display: 'block' }}>
+                Rate Applied:
               </span>
-              <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-main, #1e293b)' }}>
-                ₹{rateApplied} / parcel ({numCompleted > 70 ? 'Tier 2 High Volume Rate' : 'Tier 1 Standard Rate'})
+              <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-main, #1e293b)', whiteSpace: 'nowrap' }}>
+                ₹{rateApplied}/parcel ({numCompleted > 70 ? 'Tier 2' : 'Tier 1'})
               </div>
             </div>
           </div>
 
-          <div style={{ textAlign: 'right' }}>
-            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted, #64748b)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+          <div style={{ textAlign: 'right', flexShrink: 0 }}>
+            <span style={{ fontSize: '0.65rem', color: 'var(--text-muted, #64748b)', textTransform: 'uppercase', letterSpacing: '0.3px', display: 'block' }}>
               Est. Daily Payout
             </span>
-            <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#16a34a' }}>
+            <div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#16a34a', lineHeight: 1.1 }}>
               ₹{earning}
             </div>
           </div>
@@ -300,44 +318,45 @@ export const VerificationCard: React.FC<VerificationCardProps> = ({
           <div style={{
             background: 'rgba(239, 68, 68, 0.1)',
             border: '1px solid rgba(239, 68, 68, 0.3)',
-            borderRadius: '10px',
-            padding: '10px 14px',
+            borderRadius: '8px',
+            padding: '8px 12px',
             color: '#dc2626',
-            fontSize: '0.8rem',
+            fontSize: '0.775rem',
             fontWeight: 500,
             display: 'flex',
             alignItems: 'center',
-            gap: '8px',
-            marginBottom: '16px'
+            gap: '6px',
+            marginBottom: '12px'
           }}>
-            <AlertTriangle size={16} style={{ flexShrink: 0 }} />
+            <AlertTriangle size={15} style={{ flexShrink: 0 }} />
             <span>{validationError || submitError}</span>
           </div>
         )}
 
         {/* Notes Field */}
-        <div style={{ marginBottom: '16px' }}>
-          <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted, #64748b)', display: 'block', marginBottom: '4px' }}>
+        <div style={{ marginBottom: '12px' }}>
+          <label style={{ fontSize: '0.725rem', fontWeight: 600, color: 'var(--text-muted, #64748b)', display: 'block', marginBottom: '4px' }}>
             Optional Notes / Hub Details:
           </label>
           <input
             type="text"
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            placeholder="e.g. Morning runsheet completed, 3 customer rejected"
+            placeholder="e.g. Morning runsheet completed"
             style={{
               width: '100%',
-              padding: '8px 12px',
+              padding: '8px 10px',
               borderRadius: '8px',
               border: '1px solid var(--border-color, #cbd5e1)',
-              fontSize: '0.85rem'
+              fontSize: '0.825rem',
+              boxSizing: 'border-box'
             }}
           />
         </div>
 
         {/* OCR Raw Text Details Drawer */}
         {rawText && (
-          <div style={{ marginBottom: '16px' }}>
+          <div style={{ marginBottom: '12px' }}>
             <button
               type="button"
               onClick={() => setShowRawText(!showRawText)}
@@ -345,7 +364,7 @@ export const VerificationCard: React.FC<VerificationCardProps> = ({
                 background: 'none',
                 border: 'none',
                 color: '#2563eb',
-                fontSize: '0.75rem',
+                fontSize: '0.725rem',
                 fontWeight: 600,
                 cursor: 'pointer',
                 display: 'inline-flex',
@@ -354,19 +373,19 @@ export const VerificationCard: React.FC<VerificationCardProps> = ({
                 padding: 0
               }}
             >
-              <FileText size={14} />
-              {showRawText ? 'Hide Raw Scanned Text' : 'View Raw Scanned Text'}
+              <FileText size={13} />
+              {showRawText ? 'Hide Scanned Text' : 'View Scanned Text'}
             </button>
 
             {showRawText && (
               <pre style={{
-                marginTop: '6px',
-                padding: '10px',
+                marginTop: '4px',
+                padding: '8px',
                 background: 'var(--bg-main, #f8fafc)',
-                borderRadius: '8px',
-                fontSize: '0.725rem',
+                borderRadius: '6px',
+                fontSize: '0.7rem',
                 color: 'var(--text-muted, #64748b)',
-                maxHeight: '120px',
+                maxHeight: '100px',
                 overflowY: 'auto',
                 whiteSpace: 'pre-wrap',
                 border: '1px solid var(--border-color, #e2e8f0)'
@@ -377,22 +396,29 @@ export const VerificationCard: React.FC<VerificationCardProps> = ({
           </div>
         )}
 
-        {/* Upload Proof Thumbnail & Action Buttons */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+        {/* Mobile-First Full Width Touch Submit Action */}
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '10px',
+          width: '100%',
+          marginTop: '6px'
+        }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <img
               src={previewUrl}
               alt="Screenshot proof"
               style={{
-                width: '40px',
-                height: '40px',
+                width: '34px',
+                height: '34px',
                 objectFit: 'cover',
                 borderRadius: '6px',
-                border: '1px solid rgba(0,0,0,0.1)'
+                border: '1px solid rgba(0,0,0,0.1)',
+                flexShrink: 0
               }}
             />
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted, #64748b)' }}>
-              Screenshot attached for Cloudinary & Admin audit
+            <span style={{ fontSize: '0.725rem', color: 'var(--text-muted, #64748b)', lineHeight: 1.2 }}>
+              Screenshot attached for Cloudinary & Admin verification
             </span>
           </div>
 
@@ -400,19 +426,23 @@ export const VerificationCard: React.FC<VerificationCardProps> = ({
             type="submit"
             disabled={isSubmitting || Boolean(validationError)}
             style={{
-              padding: '10px 24px',
+              width: '100%',
+              minHeight: '46px',
+              padding: '12px 20px',
               borderRadius: '10px',
               background: isSubmitting || validationError ? '#cbd5e1' : 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
               color: '#fff',
               fontWeight: 700,
-              fontSize: '0.9rem',
+              fontSize: '0.925rem',
               border: 'none',
               cursor: isSubmitting || validationError ? 'not-allowed' : 'pointer',
               display: 'inline-flex',
               alignItems: 'center',
+              justifyContent: 'center',
               gap: '8px',
-              boxShadow: isSubmitting || validationError ? 'none' : '0 4px 12px rgba(37, 99, 235, 0.25)',
-              transition: 'all 0.2s'
+              boxShadow: isSubmitting || validationError ? 'none' : '0 4px 14px rgba(37, 99, 235, 0.3)',
+              transition: 'all 0.2s',
+              boxSizing: 'border-box'
             }}
           >
             {isSubmitting ? (
