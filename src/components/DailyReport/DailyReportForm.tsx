@@ -1,12 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { StorageService, calculateDailyEarnings, RATE_RULE } from '../../services/storage';
+import { StorageService } from '../../services/storage';
 import { FirebaseService } from '../../services/firebase';
 import type { DailyReport, UserProfile } from '../../types';
 import {
-  Calendar, PackageCheck, RotateCcw, Calculator, CheckCircle2,
-  Edit3, Package, UserX, AlertTriangle, X, Loader2
+  Calendar, CheckCircle2, Edit3, UserX, AlertTriangle, X, Loader2
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
+
+import { uploadToCloudinary } from '../../services/cloudinary';
+import { processScreenshotOCR, type OCRResult } from '../../services/ocr';
+import { ImageUploader } from '../OCR/ImageUploader';
+import { OCRProcessor } from '../OCR/OCRProcessor';
+import { VerificationCard } from '../OCR/VerificationCard';
 
 interface DailyReportFormProps {
   user: UserProfile;
@@ -34,13 +39,14 @@ export const DailyReportForm: React.FC<DailyReportFormProps> = ({ user, onReport
       setDate(selectedEditDate);
     }
   }, [selectedEditDate]);
-  const [totalParcels, setTotalParcels] = useState<number | ''>('');
-  const [completed, setCompleted] = useState<number | ''>('');
-  const [returned, setReturned] = useState<number | ''>('');
-  const [notes, setNotes] = useState('');
 
-  // Auto-calculate Return Parcels flag
-  const [isAutoCalcReturn, setIsAutoCalcReturn] = useState(true);
+  // OCR & Cloudinary States
+  const [ocrFile, setOcrFile] = useState<File | null>(null);
+  const [isScanningOCR, setIsScanningOCR] = useState(false);
+  const [ocrProgress, setOcrProgress] = useState(0);
+  const [ocrStatus, setOcrStatus] = useState('');
+  const [ocrResult, setOcrResult] = useState<OCRResult | null>(null);
+  const [ocrSubmitError, setOcrSubmitError] = useState<string | null>(null);
 
   // Absent Reporting Modal state
   const [showAbsentModal, setShowAbsentModal] = useState(false);
@@ -48,7 +54,6 @@ export const DailyReportForm: React.FC<DailyReportFormProps> = ({ user, onReport
   const [absentReason, setAbsentReason] = useState('Personal Work');
 
   const [existingReport, setExistingReport] = useState<DailyReport | null>(null);
-  const [isEditMode, setIsEditMode] = useState(false);
   const [successDetails, setSuccessDetails] = useState<SuccessDetails | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -68,70 +73,82 @@ export const DailyReportForm: React.FC<DailyReportFormProps> = ({ user, onReport
     }
   }, [successDetails]);
 
-  // Check existing reports for date duplicate detection & form population
+  // Check existing reports for date duplicate detection
   useEffect(() => {
     FirebaseService.getDailyReports(user.uid).then(reports => {
       const match = reports.find(r => r.date === date);
       if (match) {
         setExistingReport(match);
-        setCompleted(match.completedParcels);
-        setReturned(match.returnParcels);
-        setTotalParcels(match.totalParcels ?? (match.completedParcels + match.returnParcels));
-        setNotes(match.notes || '');
-        setIsEditMode(match.status === 'pending');
       } else {
         setExistingReport(null);
-        setCompleted('');
-        setReturned('');
-        setTotalParcels('');
-        setNotes('');
-        setIsEditMode(false);
       }
     });
   }, [date, user.uid]);
 
-  // Feature 4: Auto-calculate Return Parcels = Total Parcels - Completed Parcels
-  useEffect(() => {
-    if (isAutoCalcReturn) {
-      const tot = typeof totalParcels === 'number' ? totalParcels : 0;
-      const comp = typeof completed === 'number' ? completed : 0;
-      const calcReturn = Math.max(0, tot - comp);
-      setReturned(calcReturn);
-    }
-  }, [totalParcels, completed, isAutoCalcReturn]);
+  // Handle Screenshot Upload & Trigger Tesseract OCR Scanning
+  const handleImageSelected = async (file: File) => {
+    setOcrFile(file);
+    setOcrResult(null);
+    setOcrSubmitError(null);
+    setIsScanningOCR(true);
+    setOcrProgress(10);
+    setOcrStatus('Initializing Tesseract.js OCR engine...');
 
-  const numTotal = typeof totalParcels === 'number' ? totalParcels : 0;
-  const numCompleted = typeof completed === 'number' ? typeof totalParcels === 'number' ? Math.min(completed, totalParcels) : completed : 0;
-  const numReturned = typeof returned === 'number' ? returned : 0;
-
-  // Feature 5 & 6: Auto per parcel rate fetch & Auto total amount fetch
-  const { earning } = calculateDailyEarnings(typeof completed === 'number' ? completed : 0);
-
-  // Feature 7: Submit Daily Shift Report
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMsg(null);
-    setSuccessDetails(null);
-
-    if (numCompleted < 0 || numReturned < 0 || numTotal < 0) {
-      setErrorMsg('Parcel counts cannot be negative.');
-      return;
-    }
-
-    if (numCompleted > numTotal && numTotal > 0) {
-      setErrorMsg('Completed parcels cannot exceed Total parcels assigned.');
-      return;
-    }
-
-    setIsSubmitting(true);
     try {
+      const result = await processScreenshotOCR(file, (progress, status) => {
+        setOcrProgress(progress);
+        setOcrStatus(status);
+      });
+      setOcrResult(result);
+    } catch (err: any) {
+      console.warn('OCR Scanning warning:', err);
+      // Fallback result so rider can still verify/edit numbers manually
+      setOcrResult({
+        rawText: '',
+        totalParcels: null,
+        completedParcels: null,
+        returnParcels: null,
+        confidence: 0
+      });
+    } finally {
+      setIsScanningOCR(false);
+    }
+  };
+
+  const handleClearImage = () => {
+    setOcrFile(null);
+    setOcrResult(null);
+    setOcrSubmitError(null);
+    setIsScanningOCR(false);
+  };
+
+  // Handle OCR Form Confirmation Submit
+  const handleConfirmOcrSubmit = async (data: {
+    totalParcels: number;
+    completedParcels: number;
+    returnParcels: number;
+    notes?: string;
+  }) => {
+    setErrorMsg(null);
+    setOcrSubmitError(null);
+    setIsSubmitting(true);
+
+    try {
+      let proofUrl = undefined;
+      if (ocrFile) {
+        setOcrStatus('Uploading screenshot to Cloudinary...');
+        proofUrl = await uploadToCloudinary(ocrFile);
+      }
+
       const { report, isUpdate } = await StorageService.saveDailyReport({
         uid: user.uid,
         date,
-        totalParcels: numTotal,
-        completedParcels: numCompleted,
-        returnParcels: numReturned,
-        notes,
+        totalParcels: data.totalParcels,
+        completedParcels: data.completedParcels,
+        returnParcels: data.returnParcels,
+        notes: data.notes,
+        proofUrl,
+        ocrRawText: ocrResult?.rawText,
         isAbsent: false
       }, user);
 
@@ -147,22 +164,25 @@ export const DailyReportForm: React.FC<DailyReportFormProps> = ({ user, onReport
         isUpdate,
         isAbsent: false,
         date,
-        totalParcels: numTotal,
-        completedParcels: numCompleted,
-        returnParcels: numReturned,
+        totalParcels: data.totalParcels,
+        completedParcels: data.completedParcels,
+        returnParcels: data.returnParcels,
         earning: report.earning || 0,
         submittedAtTime: nowTimeStr
       });
 
+      handleClearImage();
       onReportSubmitted();
     } catch (err: any) {
-      setErrorMsg(err.message || 'Failed to save daily report to Firebase Database.');
+      setOcrSubmitError(err.message || 'Failed to save daily report to Cloudinary / Firebase.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Feature 8: Absent Reporting Submit
+
+
+  // Absent Reporting Submit
   const handleAbsentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
@@ -249,7 +269,6 @@ export const DailyReportForm: React.FC<DailyReportFormProps> = ({ user, onReport
           </div>
         </div>
 
-        {/* Feature 8: Corner Button for Absenteeism */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           {existingReport && (
             <span className={`pulse-badge ${isLocked ? 'pulse-badge-active' : (existingReport.status === 'rejected' ? 'pulse-badge-suspended' : 'pulse-badge-pending')}`}>
@@ -410,7 +429,7 @@ export const DailyReportForm: React.FC<DailyReportFormProps> = ({ user, onReport
         </div>
       )}
 
-      {/* Date Selector (Always Visible so user can pick any date to enter reports for multiple days) */}
+      {/* Date Selector */}
       <div style={{ marginBottom: '12px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
           <label style={{ fontSize: '0.775rem', fontWeight: 700, color: 'var(--text-muted)' }}>
@@ -470,7 +489,7 @@ export const DailyReportForm: React.FC<DailyReportFormProps> = ({ user, onReport
         </div>
       </div>
 
-      {/* Feature 1: Already Submitted Date Notification Banner */}
+      {/* Already Submitted Date Notification Banner */}
       {existingReport && (
         <div style={{
           background: existingReport.status === 'verified'
@@ -509,156 +528,37 @@ export const DailyReportForm: React.FC<DailyReportFormProps> = ({ user, onReport
         </div>
       )}
 
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+      {/* SCREENSHOT OCR UPLOAD & SCAN WORKFLOW */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+        {/* Step 1: Image Selection */}
+        <ImageUploader
+          onImageSelected={handleImageSelected}
+          selectedImage={ocrFile}
+          onClearImage={handleClearImage}
+          disabled={isSubmitting || isScanningOCR || isLocked}
+        />
 
-          {/* Feature 2: Total Number of Parcels (Manual Entry) */}
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-              <label style={{ fontSize: '0.775rem', fontWeight: 700, color: 'var(--text-muted)' }}>
-                Total Number of Parcels (Assigned / Handover)
-              </label>
-            </div>
-            <div style={{ position: 'relative' }}>
-              <Package size={17} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--accent-blue)' }} />
-              <input
-                type="number"
-                min="0"
-                required
-                className="cyber-input"
-                style={{ paddingLeft: '36px', fontWeight: 600, fontSize: '0.95rem', minHeight: '42px' }}
-                placeholder="Enter total parcels"
-                value={totalParcels}
-                onChange={e => setTotalParcels(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
-              />
-            </div>
-          </div>
+        {/* Step 2: OCR Scanning Animation */}
+        {isScanningOCR && (
+          <OCRProcessor progress={ocrProgress} status={ocrStatus} />
+        )}
 
-          {/* Feature 3: Completed Parcels */}
-          <div>
-            <div style={{ marginBottom: '4px' }}>
-              <label style={{ fontSize: '0.775rem', fontWeight: 700, color: 'var(--text-muted)' }}>
-                Completed Parcels (Delivered)
-              </label>
-            </div>
-            <div style={{ position: 'relative' }}>
-              <PackageCheck size={17} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--primary-emerald)' }} />
-              <input
-                type="number"
-                min="0"
-                required
-                className="cyber-input"
-                style={{ paddingLeft: '36px', fontWeight: 600, fontSize: '0.95rem', minHeight: '42px' }}
-                placeholder="Enter completed parcels"
-                value={completed}
-                onChange={e => setCompleted(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
-              />
-            </div>
-          </div>
+        {/* Step 3: Verification Card */}
+        {ocrFile && !isScanningOCR && ocrResult && (
+          <VerificationCard
+            extractedTotal={ocrResult.totalParcels}
+            extractedCompleted={ocrResult.completedParcels}
+            extractedReturned={ocrResult.returnParcels}
+            rawText={ocrResult.rawText}
+            imageFile={ocrFile}
+            onConfirmSubmit={handleConfirmOcrSubmit}
+            isSubmitting={isSubmitting}
+            submitError={ocrSubmitError}
+          />
+        )}
+      </div>
 
-          {/* Feature 4: Return Parcels (Auto-Calculated: Total - Completed) */}
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-              <label style={{ fontSize: '0.775rem', fontWeight: 700, color: 'var(--text-muted)' }}>
-                Return Parcels
-              </label>
-              <span style={{ fontSize: '0.675rem', color: 'var(--primary-teal)', fontWeight: 600 }}>
-                ⚡ Auto-Calculated (Total - Completed)
-              </span>
-            </div>
-            <div style={{ position: 'relative' }}>
-              <RotateCcw size={17} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--accent-amber)' }} />
-              <input
-                type="number"
-                min="0"
-                required
-                className="cyber-input"
-                style={{ paddingLeft: '36px', textAlign: 'center', fontWeight: 800, fontSize: '1.05rem', minHeight: '40px', background: 'var(--bg-dark)' }}
-                placeholder="0"
-                value={returned}
-                onChange={e => {
-                  setIsAutoCalcReturn(false);
-                  setReturned(e.target.value === '' ? '' : parseInt(e.target.value, 10));
-                }}
-              />
-            </div>
-          </div>
-
-          {/* Feature 5 & 6: Auto Per Parcel Rate & Total Amount Fetch Card */}
-          <div style={{
-            background: 'linear-gradient(135deg, var(--bg-dark), rgba(16, 185, 129, 0.08))',
-            border: '1px solid rgba(16, 185, 129, 0.3)',
-            borderRadius: 'var(--radius-sm)',
-            padding: '10px 12px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '10px'
-          }}>
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: 'var(--text-muted)', fontSize: '0.725rem', fontWeight: 600 }}>
-                <Calculator size={14} /> Auto Rate Fetched
-              </div>
-              <div style={{ fontSize: '0.8rem', color: 'var(--text-main)', marginTop: '2px', fontWeight: 700 }}>
-                {numCompleted > RATE_RULE.THRESHOLD ? (
-                  <span style={{ color: 'var(--primary-emerald)' }}>
-                    Tier 2: ₹17 / parcel (&gt;70)
-                  </span>
-                ) : (
-                  <span>Standard: ₹16 / parcel (&le;70)</span>
-                )}
-              </div>
-            </div>
-
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>
-                Auto Total Amount
-              </div>
-              <div style={{
-                fontSize: '1.4rem',
-                fontWeight: 800,
-                color: 'var(--primary-emerald)',
-                fontFamily: 'var(--font-heading)'
-              }}>
-                ₹{earning.toLocaleString('en-IN')}
-              </div>
-            </div>
-          </div>
-
-          {/* Feature 7: Submit Parcel Button */}
-          <button
-            type="submit"
-            disabled={isLocked || isSubmitting}
-            className="cyber-button-primary"
-            style={{
-              width: '100%',
-              minHeight: '44px',
-              fontSize: '0.95rem',
-              opacity: (isLocked || isSubmitting) ? 0.65 : 1,
-              cursor: (isLocked || isSubmitting) ? 'not-allowed' : 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '8px'
-            }}
-          >
-            {isSubmitting ? (
-              <>
-                <Loader2 size={18} className="animate-spin-fast" />
-                <span>Saving & Syncing Report...</span>
-              </>
-            ) : isLocked ? (
-              `🔒 Verified & Locked for ${date}`
-            ) : existingReport?.status === 'rejected' ? (
-              'Correct & Resubmit Shift Report'
-            ) : isEditMode ? (
-              'Update Daily Shift Report'
-            ) : (
-              'Submit Daily Shift Report'
-            )}
-          </button>
-        </form>
-
-      {/* Feature 8: Absent Reporting Modal */}
+      {/* Absent Reporting Modal */}
       {showAbsentModal && (
         <div style={{
           position: 'fixed',

@@ -99,6 +99,8 @@ export function normalizeDailyReport(raw: any, parentUid?: string, nodeKey?: str
   if (raw.verifiedBy) normalized.verifiedBy = raw.verifiedBy;
   if (raw.notes) normalized.notes = raw.notes;
   if (raw.rejectionReason) normalized.rejectionReason = raw.rejectionReason;
+  if (raw.proofUrl || raw.screenshotUrl) normalized.proofUrl = raw.proofUrl || raw.screenshotUrl;
+  if (raw.ocrRawText) normalized.ocrRawText = raw.ocrRawText;
 
   return sanitizeForFirebase(normalized);
 }

@@ -27,6 +27,8 @@ export interface DailyReport {
   notes?: string;
   rejectionReason?: string;
   isAbsent?: boolean;
+  proofUrl?: string;
+  ocrRawText?: string;
 }
 
 export interface PayoutCycle {

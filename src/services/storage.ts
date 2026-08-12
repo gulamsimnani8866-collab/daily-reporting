@@ -61,7 +61,17 @@ export const StorageService = {
   },
 
   async saveDailyReport(
-    reportData: { uid: string; date: string; completedParcels: number; returnParcels: number; totalParcels?: number; notes?: string; isAbsent?: boolean },
+    reportData: {
+      uid: string;
+      date: string;
+      completedParcels: number;
+      returnParcels: number;
+      totalParcels?: number;
+      notes?: string;
+      isAbsent?: boolean;
+      proofUrl?: string;
+      ocrRawText?: string;
+    },
     userProfile?: Partial<UserProfile>
   ): Promise<{ report: DailyReport; isUpdate: boolean }> {
     this.initStorage();
@@ -97,6 +107,8 @@ export const StorageService = {
         rejectionReason: undefined,
         isAbsent: reportData.isAbsent || false,
         notes: reportData.notes || existing.notes,
+        proofUrl: reportData.proofUrl || existing.proofUrl,
+        ocrRawText: reportData.ocrRawText || existing.ocrRawText,
         submittedAt: new Date().toISOString()
       };
       
@@ -115,7 +127,9 @@ export const StorageService = {
         isAbsent: reportData.isAbsent || false,
         status: 'pending',
         submittedAt: new Date().toISOString(),
-        notes: reportData.notes
+        notes: reportData.notes,
+        proofUrl: reportData.proofUrl,
+        ocrRawText: reportData.ocrRawText
       };
       
       allReports.unshift(resultReport);
