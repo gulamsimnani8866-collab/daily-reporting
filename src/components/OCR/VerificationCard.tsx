@@ -32,13 +32,26 @@ export const VerificationCard: React.FC<VerificationCardProps> = ({
   submitError
 }) => {
   const [showRawText, setShowRawText] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (imageFile) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setPreviewUrl(e.target?.result as string || null);
+      };
+      reader.readAsDataURL(imageFile);
+    }
+  }, [imageFile]);
+
+  const isLowOcr = (!extractedTotal || extractedTotal === 0) && (!extractedCompleted || extractedCompleted === 0);
   const compVal = typeof extractedCompleted === 'number' ? extractedCompleted : 0;
   const retVal = typeof extractedReturned === 'number' ? extractedReturned : 0;
   const initialTotal = extractedTotal && extractedTotal >= compVal ? extractedTotal : (compVal > 0 ? compVal + retVal : '');
 
   const [total, setTotal] = useState<number | ''>(initialTotal);
-  const [completed, setCompleted] = useState<number | ''>(extractedCompleted ?? '');
-  const [returned, setReturned] = useState<number | ''>(retVal);
+  const [completed, setCompleted] = useState<number | ''>(extractedCompleted && extractedCompleted > 0 ? extractedCompleted : '');
+  const [returned, setReturned] = useState<number | ''>(retVal > 0 ? retVal : '');
   const [notes, setNotes] = useState<string>('');
   const [validationError, setValidationError] = useState<string | null>(null);
 
@@ -78,8 +91,6 @@ export const VerificationCard: React.FC<VerificationCardProps> = ({
       notes
     });
   };
-
-  const previewUrl = URL.createObjectURL(imageFile);
 
   return (
     <div
@@ -128,8 +139,8 @@ export const VerificationCard: React.FC<VerificationCardProps> = ({
           fontSize: '0.675rem',
           padding: '3px 8px',
           borderRadius: '9999px',
-          background: 'rgba(59, 130, 246, 0.1)',
-          color: '#2563eb',
+          background: isLowOcr ? 'rgba(245, 158, 11, 0.12)' : 'rgba(59, 130, 246, 0.1)',
+          color: isLowOcr ? '#d97706' : '#2563eb',
           fontWeight: 600,
           display: 'inline-flex',
           alignItems: 'center',
@@ -137,9 +148,32 @@ export const VerificationCard: React.FC<VerificationCardProps> = ({
           flexShrink: 0
         }}>
           <Sparkles size={11} />
-          OCR Extracted
+          {isLowOcr ? 'Manual Input Needed' : 'OCR Extracted'}
         </span>
       </div>
+
+      {isLowOcr && (
+        <div style={{
+          background: 'rgba(245, 158, 11, 0.08)',
+          border: '1px solid rgba(245, 158, 11, 0.3)',
+          borderRadius: '10px',
+          padding: '10px 12px',
+          marginBottom: '12px',
+          fontSize: '0.785rem',
+          color: '#b45309',
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: '8px'
+        }}>
+          <AlertTriangle size={18} style={{ flexShrink: 0, marginTop: '1px', color: '#f59e0b' }} />
+          <div>
+            <strong style={{ display: 'block', color: '#92400e', marginBottom: '2px' }}>
+              OCR Could Not Auto-Detect Numbers
+            </strong>
+            Screenshot attached successfully. Auto-reading figures failed for this screenshot format. Please type your <strong>Total</strong> and <strong>Completed</strong> parcel count manually below.
+          </div>
+        </div>
+      )}
 
       <form onSubmit={handleSubmit}>
         {/* Responsive Mobile-Compact Verification Inputs Grid */}
@@ -405,18 +439,37 @@ export const VerificationCard: React.FC<VerificationCardProps> = ({
           marginTop: '6px'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <img
-              src={previewUrl}
-              alt="Screenshot proof"
-              style={{
+            {previewUrl ? (
+              <img
+                src={previewUrl}
+                alt="Screenshot proof"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                }}
+                style={{
+                  width: '34px',
+                  height: '34px',
+                  objectFit: 'cover',
+                  borderRadius: '6px',
+                  border: '1px solid rgba(0,0,0,0.1)',
+                  flexShrink: 0
+                }}
+              />
+            ) : (
+              <div style={{
                 width: '34px',
                 height: '34px',
-                objectFit: 'cover',
                 borderRadius: '6px',
-                border: '1px solid rgba(0,0,0,0.1)',
+                background: 'rgba(59, 130, 246, 0.1)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#3b82f6',
                 flexShrink: 0
-              }}
-            />
+              }}>
+                <FileText size={16} />
+              </div>
+            )}
             <span style={{ fontSize: '0.725rem', color: 'var(--text-muted, #64748b)', lineHeight: 1.2 }}>
               Screenshot attached for Cloudinary & Admin verification
             </span>

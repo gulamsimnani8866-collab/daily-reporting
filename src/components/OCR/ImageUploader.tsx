@@ -34,8 +34,15 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
       return;
     }
 
-    const url = URL.createObjectURL(file);
-    setPreviewUrl(url);
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setPreviewUrl(e.target?.result as string || null);
+    };
+    reader.onerror = () => {
+      setError('Failed to read image file. Please select another image.');
+    };
+    reader.readAsDataURL(file);
+
     onImageSelected(file);
   };
 
@@ -100,17 +107,33 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
             gap: '12px'
           }}
         >
-          <img
-            src={previewUrl}
-            alt="Screenshot preview"
-            style={{
+          {previewUrl.startsWith('data:image') ? (
+            <img
+              src={previewUrl}
+              alt="Screenshot preview"
+              onError={() => setError('Image preview failed to display.')}
+              style={{
+                width: '72px',
+                height: '72px',
+                objectFit: 'cover',
+                borderRadius: '8px',
+                border: '1px solid rgba(0,0,0,0.1)'
+              }}
+            />
+          ) : (
+            <div style={{
               width: '72px',
               height: '72px',
-              objectFit: 'cover',
               borderRadius: '8px',
-              border: '1px solid rgba(0,0,0,0.1)'
-            }}
-          />
+              background: 'rgba(59, 130, 246, 0.1)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#3b82f6'
+            }}>
+              <ImageIcon size={32} />
+            </div>
+          )}
 
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{
