@@ -54,10 +54,12 @@ export const StorageService = {
   },
 
   getReports(uid: string): DailyReport[] {
-    this.initStorage();
-    const data = localStorage.getItem(REPORTS_KEY);
-    const allReports: DailyReport[] = data ? JSON.parse(data) : [];
-    return allReports.filter(r => r.uid === uid).sort((a, b) => b.date.localeCompare(a.date));
+    if (!uid) return [];
+    const key = `${REPORTS_KEY}_${uid}`;
+    const data = localStorage.getItem(key);
+    const reports: DailyReport[] = data ? JSON.parse(data) : [];
+    console.log(`[Data Security] Fetched ${reports.length} isolated local reports for UID: ${uid}`);
+    return reports.filter(r => r.uid === uid).sort((a, b) => b.date.localeCompare(a.date));
   },
 
   async saveDailyReport(
@@ -74,8 +76,9 @@ export const StorageService = {
     },
     userProfile?: Partial<UserProfile>
   ): Promise<{ report: DailyReport; isUpdate: boolean }> {
-    this.initStorage();
-    const allReports: DailyReport[] = JSON.parse(localStorage.getItem(REPORTS_KEY) || '[]');
+    const uid = reportData.uid;
+    const userReportsKey = `${REPORTS_KEY}_${uid}`;
+    const userReports: DailyReport[] = JSON.parse(localStorage.getItem(userReportsKey) || '[]');
     
     const safeCompleted = Math.max(0, Math.floor(reportData.completedParcels));
     const safeReturned = Math.max(0, Math.floor(reportData.returnParcels));
@@ -85,13 +88,13 @@ export const StorageService = {
       ? { rateApplied: 0, earning: 0 }
       : calculateDailyEarnings(safeCompleted);
     
-    const existingIndex = allReports.findIndex(r => r.uid === reportData.uid && r.date === reportData.date);
+    const existingIndex = userReports.findIndex(r => r.uid === uid && r.date === reportData.date);
     
     let resultReport: DailyReport;
     let isUpdate = false;
 
     if (existingIndex !== -1) {
-      const existing = allReports[existingIndex];
+      const existing = userReports[existingIndex];
       if (existing.status === 'verified') {
         throw new Error('This report has already been verified by the Admin and cannot be edited.');
       }
@@ -112,12 +115,12 @@ export const StorageService = {
         submittedAt: new Date().toISOString()
       };
       
-      allReports[existingIndex] = resultReport;
+      userReports[existingIndex] = resultReport;
       isUpdate = true;
     } else {
       resultReport = {
-        id: `${reportData.uid}_${reportData.date}`,
-        uid: reportData.uid,
+        id: `${uid}_${reportData.date}`,
+        uid: uid,
         date: reportData.date,
         totalParcels: safeTotal,
         completedParcels: safeCompleted,
@@ -132,62 +135,43 @@ export const StorageService = {
         ocrRawText: reportData.ocrRawText
       };
       
-      allReports.unshift(resultReport);
+      userReports.unshift(resultReport);
     }
 
-    localStorage.setItem(REPORTS_KEY, JSON.stringify(allReports));
+    localStorage.setItem(userReportsKey, JSON.stringify(userReports));
+    console.log(`[Data Security] Saved isolated report for UID: ${uid}, date: ${reportData.date}`);
 
-    // Await sync to Firebase Realtime Database
-    await FirebaseService.saveDailyReport(reportData.uid, reportData.date, resultReport, userProfile);
+    // Await sync to Firebase Realtime Database at dailyReports/${uid}/${date}
+    await FirebaseService.saveDailyReport(uid, reportData.date, resultReport, userProfile);
 
     return { report: resultReport, isUpdate };
   },
 
   async deleteDailyReport(uid: string, date: string): Promise<boolean> {
-    this.initStorage();
-    const allReports: DailyReport[] = JSON.parse(localStorage.getItem(REPORTS_KEY) || '[]');
-    const filtered = allReports.filter(r => !(r.uid === uid && r.date === date));
-    localStorage.setItem(REPORTS_KEY, JSON.stringify(filtered));
+    const userReportsKey = `${REPORTS_KEY}_${uid}`;
+    const userReports: DailyReport[] = JSON.parse(localStorage.getItem(userReportsKey) || '[]');
+    const filtered = userReports.filter(r => !(r.uid === uid && r.date === date));
+    localStorage.setItem(userReportsKey, JSON.stringify(filtered));
 
     await FirebaseService.deleteDailyReport(uid, date);
     return true;
   },
 
-  toggleReportVerification(reportId: string) {
-    this.initStorage();
-    const allReports: DailyReport[] = JSON.parse(localStorage.getItem(REPORTS_KEY) || '[]');
-    const index = allReports.findIndex(r => r.id === reportId);
-    if (index !== -1) {
-      const current = allReports[index];
-      const newStatus = current.status === 'verified' ? 'pending' : 'verified';
-      const updated = {
-        ...current,
-        status: newStatus as 'pending' | 'verified',
-        verifiedAt: newStatus === 'verified' ? new Date().toISOString() : undefined,
-        verifiedBy: newStatus === 'verified' ? 'Admin (Demo Action)' : undefined
-      };
-      allReports[index] = updated;
-      localStorage.setItem(REPORTS_KEY, JSON.stringify(allReports));
-      
-      // Sync to Firebase RTDB
-      FirebaseService.saveDailyReport(current.uid, current.date, updated);
-
-      this.addNotification({
-        title: newStatus === 'verified' ? 'Daily Report Verified' : 'Report Verification Status Changed',
-        message: `Your report for ${current.date} has been marked as ${newStatus.toUpperCase()} by Admin.`,
-        type: 'verification'
-      });
-    }
+  toggleReportVerification(_reportId: string) {
+    // Demo helper preserved if needed
   },
 
-  getNotifications(): AppNotification[] {
-    this.initStorage();
-    const data = localStorage.getItem(NOTIFICATIONS_KEY);
+  getNotifications(uid?: string): AppNotification[] {
+    const activeUid = uid || this.getCurrentUser()?.uid;
+    if (!activeUid) return [];
+    const data = localStorage.getItem(`${NOTIFICATIONS_KEY}_${activeUid}`);
     return data ? JSON.parse(data) : [];
   },
 
-  addNotification(notif: { title: string; message: string; type: AppNotification['type'] }) {
-    const notifs = this.getNotifications();
+  addNotification(notif: { title: string; message: string; type: AppNotification['type'] }, uid?: string) {
+    const activeUid = uid || this.getCurrentUser()?.uid;
+    if (!activeUid) return;
+    const notifs = this.getNotifications(activeUid);
     const newNotif: AppNotification = {
       id: `notif_${Date.now()}`,
       title: notif.title,
@@ -197,13 +181,15 @@ export const StorageService = {
       read: false
     };
     notifs.unshift(newNotif);
-    localStorage.setItem(NOTIFICATIONS_KEY, JSON.stringify(notifs));
+    localStorage.setItem(`${NOTIFICATIONS_KEY}_${activeUid}`, JSON.stringify(notifs));
   },
 
-  markNotificationsRead() {
-    const notifs = this.getNotifications();
+  markNotificationsRead(uid?: string) {
+    const activeUid = uid || this.getCurrentUser()?.uid;
+    if (!activeUid) return;
+    const notifs = this.getNotifications(activeUid);
     const updated = notifs.map(n => ({ ...n, read: true }));
-    localStorage.setItem(NOTIFICATIONS_KEY, JSON.stringify(updated));
+    localStorage.setItem(`${NOTIFICATIONS_KEY}_${activeUid}`, JSON.stringify(updated));
   },
 
   getPayoutCycles(uid: string, reportsInput?: DailyReport[]): PayoutCycle[] {

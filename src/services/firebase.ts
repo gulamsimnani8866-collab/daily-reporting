@@ -2,7 +2,6 @@ import { initializeApp, getApps, getApp } from 'firebase/app';
 import { 
   getAuth, 
   signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword, 
   signOut, 
   onAuthStateChanged,
   type User as FirebaseUser
@@ -112,24 +111,13 @@ export const FirebaseService = {
       const userCredential = await signInWithEmailAndPassword(auth, email, pass);
       return { user: userCredential.user, error: null };
     } catch (err: any) {
-      if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
-        try {
-          const newCredential = await createUserWithEmailAndPassword(auth, email, pass);
-          return { user: newCredential.user, error: null };
-        } catch (createErr: any) {
-          return { user: null, error: createErr.message || err.message };
-        }
+      let msg = 'Authentication failed. Please check your credentials.';
+      if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password') {
+        msg = 'Invalid Email/ID or Password. Only accounts created by the Administrator in the database can log in.';
+      } else if (err.message) {
+        msg = err.message;
       }
-      return { user: null, error: err.message || 'Authentication failed' };
-    }
-  },
-
-  async registerUser(email: string, pass: string) {
-    try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
-      return { user: userCredential.user, error: null };
-    } catch (err: any) {
-      return { user: null, error: err.message };
+      return { user: null, error: msg };
     }
   },
 

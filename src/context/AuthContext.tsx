@@ -32,24 +32,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Subscribe to Firebase Auth changes
     const unsubAuth = FirebaseService.onAuthChanged(async (fbUser) => {
       if (fbUser) {
-        let rtdbProfile = await FirebaseService.getUserProfile(fbUser.uid);
+        const rtdbProfile = await FirebaseService.getUserProfile(fbUser.uid);
         if (!rtdbProfile) {
-          const autoProfile: UserProfile = {
-            uid: fbUser.uid,
-            partnerId: `DP-${fbUser.uid.substring(0, 4).toUpperCase()}`,
-            name: fbUser.displayName || fbUser.email?.split('@')[0] || 'Delivery Partner',
-            email: fbUser.email || '',
-            phone: '',
-            city: 'Main Zone',
-            vehicleNumber: 'N/A',
-            accountStatus: 'active',
-            createdAt: new Date().toISOString()
-          };
-          await FirebaseService.saveUserProfile(autoProfile);
-          rtdbProfile = autoProfile;
+          console.warn('[Security Audit] Unregistered user detected. Revoking access for UID:', fbUser.uid);
+          await FirebaseService.logoutUser();
+          setUser(null);
+          localStorage.removeItem('delivery_current_user');
+          return;
         }
+        console.log(`[Data Security] Authenticated isolated user scope for UID: ${rtdbProfile.uid}`);
         StorageService.setCurrentUser(rtdbProfile);
         setUser(rtdbProfile);
+        setNotifications(StorageService.getNotifications(rtdbProfile.uid));
       } else {
         setUser(null);
         localStorage.removeItem('delivery_current_user');
@@ -68,6 +62,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (rtdbProfile) {
         setUser(rtdbProfile);
         StorageService.setCurrentUser(rtdbProfile);
+      } else {
+        // If Admin removed user profile from database, log out user immediately
+        console.warn('[Security Audit] User profile deleted from database by Admin. Logging out UID:', user.uid);
+        logout();
       }
     });
     return () => {
@@ -82,8 +80,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(rtdbProfile);
         StorageService.setCurrentUser(rtdbProfile);
       }
+      setNotifications(StorageService.getNotifications(user.uid));
     }
-    setNotifications(StorageService.getNotifications());
   };
 
   const login = async (email: string, pass: string): Promise<{ success: boolean; error?: string }> => {
@@ -99,35 +97,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       };
     }
 
-    // 2. Fetch or auto-initialize profile in Firebase Realtime Database
-    let rtdbProfile = await FirebaseService.getUserProfile(fbRes.user.uid);
+    // 2. Fetch profile from Firebase Realtime Database to verify Admin provisioning
+    const rtdbProfile = await FirebaseService.getUserProfile(fbRes.user.uid);
     
     if (!rtdbProfile) {
-      rtdbProfile = {
-        uid: fbRes.user.uid,
-        partnerId: `DP-${fbRes.user.uid.substring(0, 4).toUpperCase()}`,
-        name: fbRes.user.displayName || cleanEmail.split('@')[0] || 'Delivery Partner',
-        email: cleanEmail,
-        phone: '',
-        city: 'Main Zone',
-        vehicleNumber: 'N/A',
-        accountStatus: 'active',
-        createdAt: new Date().toISOString()
+      // User is not created in the database by Admin -> DENY ACCESS
+      await FirebaseService.logoutUser();
+      console.warn('[Security Audit] Access Denied: User profile missing in database for UID:', fbRes.user.uid);
+      return {
+        success: false,
+        error: 'Access Denied: Your User ID is not registered in the database. Please ask your Admin to assign your account.'
       };
-      await FirebaseService.saveUserProfile(rtdbProfile);
     }
 
+    if (rtdbProfile.accountStatus === 'suspended') {
+      console.warn('[Security Audit] Access Denied: Account suspended for UID:', fbRes.user.uid);
+      return {
+        success: false,
+        error: 'Access Denied: Your account has been suspended by the Administrator.'
+      };
+    }
+
+    console.log(`[Data Security] Login successful. Isolated scope active for User UID: ${rtdbProfile.uid}`);
     StorageService.setCurrentUser(rtdbProfile);
     setUser(rtdbProfile);
-    setNotifications(StorageService.getNotifications());
+    setNotifications(StorageService.getNotifications(rtdbProfile.uid));
 
     return { success: true };
   };
 
   const logout = async () => {
+    const currentUid = user?.uid;
     await FirebaseService.logoutUser();
     setUser(null);
     localStorage.removeItem('delivery_current_user');
+    if (currentUid) {
+      console.log(`[Data Security] Logged out & purged session scope for User UID: ${currentUid}`);
+    }
   };
 
   const switchUserAccount = (_uid: string) => {
