@@ -3,6 +3,7 @@ import type { DailyReport } from '../../types';
 import { StorageService } from '../../services/storage';
 import { EditReportModal } from './EditReportModal';
 import { Search, PackageCheck, RotateCcw, AlertTriangle, Edit3, Trash2, Lock, X, Loader2 } from 'lucide-react';
+import { formatDateDDMMYYYY } from '../../utils/dateFormatter';
 
 interface ReportHistoryTableProps {
   reports: DailyReport[];
@@ -20,7 +21,8 @@ export const ReportHistoryTable: React.FC<ReportHistoryTableProps> = ({ reports,
   const [isDeleting, setIsDeleting] = useState(false);
 
   const filteredReports = reports.filter(r => {
-    const matchesSearch = r.date.includes(searchTerm) || (r.notes && r.notes.toLowerCase().includes(searchTerm.toLowerCase()));
+    const formattedDate = formatDateDDMMYYYY(r.date);
+    const matchesSearch = r.date.includes(searchTerm) || formattedDate.includes(searchTerm) || (r.notes && r.notes.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesStatus = statusFilter === 'all' ? true : r.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -141,7 +143,14 @@ export const ReportHistoryTable: React.FC<ReportHistoryTableProps> = ({ reports,
       </div>
 
       {/* Mobile Card List View (visible on small screens) */}
-      <div className="mobile-only-cards">
+      <div 
+        className="mobile-only-cards"
+        style={{
+          maxHeight: filteredReports.length > 10 ? '540px' : 'auto',
+          overflowY: filteredReports.length > 10 ? 'auto' : 'visible',
+          paddingRight: filteredReports.length > 10 ? '4px' : '0'
+        }}
+      >
         {filteredReports.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '24px', color: 'var(--text-dim)', fontSize: '0.8rem' }}>
             No shift logs found.
@@ -160,7 +169,7 @@ export const ReportHistoryTable: React.FC<ReportHistoryTableProps> = ({ reports,
             >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
                 <div style={{ fontWeight: 800, color: 'var(--text-main)', fontSize: '0.9rem' }}>
-                  {report.date}
+                  {formatDateDDMMYYYY(report.date)}
                   {report.isAbsent && (
                     <span style={{ marginLeft: '6px', fontSize: '0.65rem', color: 'var(--accent-rose)', background: 'rgba(244, 63, 94, 0.1)', padding: '1px 6px', borderRadius: '4px' }}>
                       Absent
@@ -255,9 +264,24 @@ export const ReportHistoryTable: React.FC<ReportHistoryTableProps> = ({ reports,
       </div>
 
       {/* Desktop Table (visible on larger screens) */}
-      <div className="desktop-table-wrapper" style={{ overflowX: 'auto' }}>
+      <div 
+        className="desktop-table-wrapper" 
+        style={{ 
+          overflowX: 'auto',
+          maxHeight: filteredReports.length > 10 ? '480px' : 'auto',
+          overflowY: filteredReports.length > 10 ? 'auto' : 'visible',
+          border: filteredReports.length > 10 ? '1px solid var(--border-glass)' : 'none',
+          borderRadius: filteredReports.length > 10 ? 'var(--radius-sm)' : 0
+        }}
+      >
         <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-          <thead>
+          <thead style={{
+            position: filteredReports.length > 10 ? 'sticky' : 'static',
+            top: 0,
+            background: 'var(--bg-card)',
+            zIndex: 2,
+            boxShadow: filteredReports.length > 10 ? '0 2px 8px rgba(0,0,0,0.15)' : 'none'
+          }}>
             <tr style={{
               borderBottom: '1px solid var(--border-glass)',
               color: 'var(--text-dim)',
@@ -292,7 +316,7 @@ export const ReportHistoryTable: React.FC<ReportHistoryTableProps> = ({ reports,
                   }}
                 >
                   <td style={{ padding: '10px 12px', fontWeight: 700, color: 'var(--text-main)', fontSize: '0.85rem' }}>
-                    {report.date}
+                    {formatDateDDMMYYYY(report.date)}
                     {report.isAbsent && (
                       <span style={{ marginLeft: '6px', fontSize: '0.65rem', color: 'var(--accent-rose)', background: 'rgba(244, 63, 94, 0.1)', padding: '1px 6px', borderRadius: '4px' }}>
                         Absent
@@ -389,6 +413,25 @@ export const ReportHistoryTable: React.FC<ReportHistoryTableProps> = ({ reports,
         </table>
       </div>
 
+      {filteredReports.length > 10 && (
+        <div style={{
+          textAlign: 'center',
+          fontSize: '0.725rem',
+          color: 'var(--text-dim)',
+          marginTop: '8px',
+          padding: '6px 12px',
+          background: 'rgba(255, 255, 255, 0.03)',
+          borderRadius: 'var(--radius-sm)',
+          border: '1px solid var(--border-glass)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '6px'
+        }}>
+          📜 Total {filteredReports.length} history entries logged. Scroll vertically inside table to view all records.
+        </div>
+      )}
+
       {/* Edit Modal (if triggered directly from table) */}
       {editingReport && (
         <EditReportModal
@@ -459,13 +502,13 @@ export const ReportHistoryTable: React.FC<ReportHistoryTableProps> = ({ reports,
                   Delete Shift Log?
                 </h3>
                 <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                  Permanently remove report entry for <strong>{deletingReport.date}</strong>
+                  Permanently remove report entry for <strong>{formatDateDDMMYYYY(deletingReport.date)}</strong>
                 </p>
               </div>
             </div>
 
             <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '16px', lineHeight: 1.4 }}>
-              Are you sure you want to delete this shift report? This will remove the logged parcels ({deletingReport.completedParcels} completed) and ₹{deletingReport.earning.toLocaleString('en-IN')} earnings for {deletingReport.date}.
+              Are you sure you want to delete this shift report? This will remove the logged parcels ({deletingReport.completedParcels} completed) and ₹{deletingReport.earning.toLocaleString('en-IN')} earnings for {formatDateDDMMYYYY(deletingReport.date)}.
             </p>
 
             <div style={{ display: 'flex', gap: '8px' }}>

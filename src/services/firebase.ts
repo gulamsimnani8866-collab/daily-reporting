@@ -1,12 +1,5 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { 
-  getAuth, 
-  signInWithEmailAndPassword, 
-  signOut, 
-  onAuthStateChanged,
-  type User as FirebaseUser
-} from 'firebase/auth';
-import { 
   getDatabase, 
   ref, 
   get, 
@@ -31,7 +24,6 @@ export const firebaseConfig = {
 
 // Initialize Firebase App singleton
 export const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-export const auth = getAuth(app);
 export const rtdb = getDatabase(app);
 
 // Initialize Analytics conditionally
@@ -46,6 +38,72 @@ if (typeof window !== 'undefined') {
   });
 }
 
+// Key Sanitization Helper as specified in Section 4.1 of PRD
+export function sanitizeDbKey(key: string): string {
+  if (!key) return '';
+  return String(key).trim().replace(/[.#$[\]]/g, '_');
+}
+
+// Direct Database Authentication Verification Function as specified in Section 4.2 of PRD
+export async function loginUserWithRealtimeDB(
+  identityInput: string,
+  passInput: string
+): Promise<{ success: boolean; user?: UserProfile; message?: string }> {
+  try {
+    const cleanId = identityInput.trim();
+    if (!cleanId || !passInput) {
+      return { success: false, message: 'Please enter User ID / Email and Password.' };
+    }
+    const dbKey = sanitizeDbKey(cleanId);
+    const snapshot = await get(ref(rtdb, `users/${dbKey}`));
+    let userVal: UserProfile | null = snapshot.exists() ? (snapshot.val() as UserProfile) : null;
+
+    // Fallback: Query all users if direct key lookup fails
+    if (!userVal) {
+      const allSnap = await get(ref(rtdb, 'users'));
+      if (allSnap.exists()) {
+        const val = allSnap.val();
+        const found = Object.values(val).find((u: any) =>
+          u && (u.userId === cleanId || u.uid === cleanId || u.email === cleanId)
+        ) as UserProfile | undefined;
+        if (found) userVal = found;
+      }
+    }
+
+    if (!userVal) {
+      return { success: false, message: 'Invalid User ID or Password' };
+    }
+
+    if (userVal.accountStatus === 'disabled' || (userVal as any).accountStatus === 'suspended') {
+      return { success: false, message: 'Your account is disabled. Please contact Admin.' };
+    }
+
+    if (userVal.password && userVal.password !== passInput) {
+      return { success: false, message: 'Invalid User ID or Password' };
+    }
+
+    // Normalize Profile fields
+    const normalizedUser: UserProfile = {
+      ...userVal,
+      userId: userVal.userId || userVal.uid || dbKey,
+      uid: userVal.uid || userVal.userId || dbKey,
+      name: userVal.name || 'Delivery Partner',
+      email: userVal.email || '',
+      mobile: userVal.mobile || userVal.phone || '',
+      phone: userVal.mobile || userVal.phone || '',
+      hubName: userVal.hubName || 'Ahmedabad Central Hub',
+      deliveryPartner: userVal.deliveryPartner || 'Flipkart',
+      partnerId: userVal.partnerId || userVal.userId || userVal.uid || `DP-${dbKey}`,
+      accountStatus: userVal.accountStatus || 'active',
+      createdAt: userVal.createdAt || new Date().toISOString()
+    };
+
+    return { success: true, user: normalizedUser };
+  } catch (err: any) {
+    return { success: false, message: err.message || 'Database connection error.' };
+  }
+}
+
 // Strip out undefined values to prevent Firebase RTDB set() exceptions
 export function sanitizeForFirebase<T>(obj: T): T {
   if (obj === null || obj === undefined) return obj;
@@ -56,7 +114,7 @@ export function sanitizeForFirebase<T>(obj: T): T {
 
 // Normalizer function to handle all variant schemas between Admin and User applications
 export function normalizeDailyReport(raw: any, parentUid?: string, nodeKey?: string, userProfile?: Partial<UserProfile>): any {
-  const activeUid = auth.currentUser?.uid || raw.uid || raw.userId || parentUid || '';
+  const activeUid = raw.uid || raw.userId || parentUid || '';
   const date = raw.date || (nodeKey && /^\d{4}-\d{2}-\d{2}$/.test(nodeKey) ? nodeKey : '') || new Date().toISOString().split('T')[0];
   const id = raw.id || `${activeUid}_${date}`;
 
@@ -105,53 +163,56 @@ export function normalizeDailyReport(raw: any, parentUid?: string, nodeKey?: str
 }
 
 export const FirebaseService = {
-  // --- AUTHENTICATION ---
-  async loginUser(email: string, pass: string) {
-    try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, pass);
-      return { user: userCredential.user, error: null };
-    } catch (err: any) {
-      let msg = 'Authentication failed. Please check your credentials.';
-      if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password') {
-        msg = 'Invalid Email/ID or Password. Only accounts created by the Administrator in the database can log in.';
-      } else if (err.message) {
-        msg = err.message;
-      }
-      return { user: null, error: msg };
+  // --- REALTIME DATABASE DIRECT AUTHENTICATION ---
+  async loginUser(identityInput: string, passInput: string) {
+    const res = await loginUserWithRealtimeDB(identityInput, passInput);
+    if (!res.success || !res.user) {
+      return { user: null, error: res.message || 'Invalid User ID or Password' };
     }
+    return { user: res.user, error: null };
   },
 
   async logoutUser() {
-    try {
-      await signOut(auth);
-      return true;
-    } catch (err) {
-      console.warn('Firebase logout warning:', err);
-      return false;
-    }
-  },
-
-  onAuthChanged(callback: (user: FirebaseUser | null) => void) {
-    return onAuthStateChanged(auth, callback);
+    return true;
   },
 
   // --- REALTIME DATABASE: USER PROFILES ---
   async getUserProfile(uid: string): Promise<UserProfile | null> {
     try {
-      const activeUid = auth.currentUser?.uid || uid;
+      const dbKey = sanitizeDbKey(uid);
       const dbRef = ref(rtdb);
-      const snapshot = await get(child(dbRef, `users/${activeUid}`));
-      if (snapshot.exists()) {
-        const val = snapshot.val();
+      let snapshot = await get(child(dbRef, `users/${dbKey}`));
+      if (!snapshot.exists()) {
+        snapshot = await get(child(dbRef, `users/${uid}`));
+      }
+      let val: any = snapshot.exists() ? snapshot.val() : null;
+
+      if (!val) {
+        // Search fallback across all users
+        const allSnap = await get(child(dbRef, 'users'));
+        if (allSnap.exists()) {
+          const allVal = allSnap.val();
+          val = Object.values(allVal).find((u: any) => u && (u.userId === uid || u.uid === uid || u.email === uid));
+        }
+      }
+
+      if (val) {
         return {
-          uid: val.uid || activeUid,
-          partnerId: val.partnerId || `DP-${activeUid.substring(0, 4).toUpperCase()}`,
+          userId: val.userId || val.uid || uid,
+          uid: val.uid || val.userId || uid,
+          partnerId: val.partnerId || val.userId || val.uid || `DP-${uid}`,
+          employeeId: val.employeeId || val.userId || val.partnerId || '100001563365',
+          deliveryPartner: val.deliveryPartner || 'Flipkart',
+          hubName: val.hubName || 'Ahmedabad Central Hub',
           name: val.name || val.userName || 'Delivery Partner',
           email: val.email || val.userEmail || '',
-          phone: val.phone || val.mobile || '',
+          mobile: val.mobile || val.phone || '',
+          phone: val.mobile || val.phone || '',
+          password: val.password,
+          role: val.role || 'user',
           city: val.city || 'General Zone',
           vehicleNumber: val.vehicleNumber || 'N/A',
-          accountStatus: val.accountStatus === 'suspended' || val.accountStatus === 'disabled' ? 'suspended' : 'active',
+          accountStatus: val.accountStatus || 'active',
           createdAt: val.createdAt || new Date().toISOString(),
           avatarUrl: val.avatarUrl || undefined
         };
@@ -165,9 +226,9 @@ export const FirebaseService = {
 
   async saveUserProfile(profile: UserProfile): Promise<boolean> {
     try {
-      const activeUid = auth.currentUser?.uid || profile.uid;
-      const sanitized = sanitizeForFirebase({ ...profile, uid: activeUid });
-      const userRef = ref(rtdb, `users/${activeUid}`);
+      const dbKey = sanitizeDbKey(profile.userId || profile.uid);
+      const sanitized = sanitizeForFirebase({ ...profile });
+      const userRef = ref(rtdb, `users/${dbKey}`);
       await set(userRef, sanitized);
       return true;
     } catch (err) {
@@ -177,20 +238,27 @@ export const FirebaseService = {
   },
 
   subscribeUserProfile(uid: string, callback: (profile: UserProfile | null) => void): Unsubscribe {
-    const activeUid = auth.currentUser?.uid || uid;
-    const userRef = ref(rtdb, `users/${activeUid}`);
+    const dbKey = sanitizeDbKey(uid);
+    const userRef = ref(rtdb, `users/${dbKey}`);
     return onValue(userRef, (snapshot) => {
       if (snapshot.exists()) {
         const val = snapshot.val();
         callback({
-          uid: val.uid || activeUid,
-          partnerId: val.partnerId || `DP-${activeUid.substring(0, 4).toUpperCase()}`,
+          userId: val.userId || val.uid || uid,
+          uid: val.uid || val.userId || uid,
+          partnerId: val.partnerId || val.userId || val.uid || `DP-${uid}`,
+          employeeId: val.employeeId || val.userId || val.partnerId || '100001563365',
+          deliveryPartner: val.deliveryPartner || 'Flipkart',
+          hubName: val.hubName || 'Ahmedabad Central Hub',
           name: val.name || val.userName || 'Delivery Partner',
           email: val.email || val.userEmail || '',
-          phone: val.phone || val.mobile || '',
+          mobile: val.mobile || val.phone || '',
+          phone: val.mobile || val.phone || '',
+          password: val.password,
+          role: val.role || 'user',
           city: val.city || 'General Zone',
           vehicleNumber: val.vehicleNumber || 'N/A',
-          accountStatus: val.accountStatus === 'suspended' || val.accountStatus === 'disabled' ? 'suspended' : 'active',
+          accountStatus: val.accountStatus || 'active',
           createdAt: val.createdAt || new Date().toISOString(),
           avatarUrl: val.avatarUrl || undefined
         });
@@ -204,7 +272,7 @@ export const FirebaseService = {
 
   // --- REALTIME DATABASE: DAILY REPORTS ---
   async saveDailyReport(uid: string, date: string, reportData: DailyReport, userProfile?: Partial<UserProfile>): Promise<boolean> {
-    const activeUid = auth.currentUser?.uid || uid;
+    const activeUid = sanitizeDbKey(uid);
     const normalized = normalizeDailyReport(reportData, activeUid, date, userProfile);
     const sanitized = sanitizeForFirebase(normalized);
     
@@ -217,7 +285,7 @@ export const FirebaseService = {
 
   async getDailyReports(uid: string): Promise<DailyReport[]> {
     try {
-      const activeUid = auth.currentUser?.uid || uid;
+      const activeUid = sanitizeDbKey(uid);
       const dbRef = ref(rtdb);
       const snapshot = await get(child(dbRef, `dailyReports/${activeUid}`));
       if (snapshot.exists()) {
@@ -232,7 +300,7 @@ export const FirebaseService = {
   },
 
   subscribeDailyReports(uid: string, callback: (reportsMap: Record<string, DailyReport>) => void): Unsubscribe {
-    const activeUid = auth.currentUser?.uid || uid;
+    const activeUid = sanitizeDbKey(uid);
     const userReportsRef = ref(rtdb, `dailyReports/${activeUid}`);
     return onValue(userReportsRef, (snapshot) => {
       if (snapshot.exists()) {
@@ -253,7 +321,7 @@ export const FirebaseService = {
 
   async deleteDailyReport(uid: string, date: string): Promise<boolean> {
     try {
-      const activeUid = auth.currentUser?.uid || uid;
+      const activeUid = sanitizeDbKey(uid);
       const dailyReportRef = ref(rtdb, `dailyReports/${activeUid}/${date}`);
       await set(dailyReportRef, null);
       return true;

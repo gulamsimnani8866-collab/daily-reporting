@@ -1,12 +1,19 @@
 export interface UserProfile {
+  userId?: string;
   uid: string;
-  partnerId: string;
+  partnerId?: string;
+  employeeId?: string;
+  deliveryPartner?: string;
+  hubName?: string;
   name: string;
   email: string;
-  phone: string;
-  city: string;
-  vehicleNumber: string;
-  accountStatus: 'active' | 'suspended';
+  mobile?: string;
+  phone?: string;
+  password?: string;
+  role?: string;
+  city?: string;
+  vehicleNumber?: string;
+  accountStatus: 'active' | 'disabled' | 'suspended';
   createdAt: string;
   avatarUrl?: string;
 }

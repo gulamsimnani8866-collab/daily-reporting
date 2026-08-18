@@ -2,6 +2,7 @@ import React from 'react';
 import type { PayoutCycle, DailyReport, UserProfile } from '../../types';
 import { generateCyclePDF } from '../../services/pdfGenerator';
 import { FileText, Download, Sparkles, Lock, CheckCircle2, Clock } from 'lucide-react';
+import { formatDateDDMMYYYY } from '../../utils/dateFormatter';
 
 interface PayoutCyclesSectionProps {
   user: UserProfile;
@@ -13,6 +14,12 @@ export const PayoutCyclesSection: React.FC<PayoutCyclesSectionProps> = ({ user, 
   const todayStr = new Date().toISOString().split('T')[0];
 
   const handleDownloadPDF = (cycle: PayoutCycle) => {
+    const isFullyVerified = cycle.verifiedCount > 0 && cycle.pendingCount === 0;
+    if (!isFullyVerified) {
+      alert('Strict Security Lock: PDF statement download is disabled until ALL submitted shift reports in this cycle are audited & verified by Admin.');
+      return;
+    }
+
     // Only pass verified reports to the PDF statement generator
     const verifiedCycleReports = reports.filter(r => {
       return r.date >= cycle.startDate && r.date <= cycle.endDate && r.status === 'verified';
@@ -67,6 +74,8 @@ export const PayoutCyclesSection: React.FC<PayoutCyclesSectionProps> = ({ user, 
           {cycles.map(cycle => {
             const isFullyVerified = cycle.verifiedCount > 0 && cycle.pendingCount === 0;
             const isCycleCompleted = todayStr > cycle.endDate;
+            // STRICT SECURITY RULE: PDF Download is ONLY allowed if ALL submitted reports in the cycle are verified by Admin
+            const canDownloadPDF = isFullyVerified;
 
             return (
               <div
@@ -98,7 +107,7 @@ export const PayoutCyclesSection: React.FC<PayoutCyclesSectionProps> = ({ user, 
                       CYCLE {cycle.cycleType} ({cycle.monthName} {cycle.year})
                     </span>
                     <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-main)', marginTop: '2px' }}>
-                      {cycle.startDate} → {cycle.endDate}
+                      {formatDateDDMMYYYY(cycle.startDate)} → {formatDateDDMMYYYY(cycle.endDate)}
                     </div>
                   </div>
 
@@ -131,40 +140,35 @@ export const PayoutCyclesSection: React.FC<PayoutCyclesSectionProps> = ({ user, 
                 <div style={{
                   display: 'grid',
                   gridTemplateColumns: 'repeat(3, 1fr)',
-                  gap: '10px',
-                  marginBottom: '12px',
-                  textAlign: 'center'
+                  gap: '8px',
+                  textAlign: 'center',
+                  marginBottom: '14px',
+                  background: 'var(--bg-dark)',
+                  padding: '12px 8px',
+                  borderRadius: 'var(--radius-sm)'
                 }}>
-                  <div style={{ background: 'rgba(255, 255, 255, 0.03)', padding: '8px', borderRadius: 'var(--radius-sm)' }}>
-                    <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)' }}>Completed</div>
-                    <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--primary-emerald)' }}>
-                      {cycle.totalCompleted}
-                    </div>
+                  <div>
+                    <div style={{ fontSize: '0.675rem', color: 'var(--text-dim)', textTransform: 'uppercase', fontWeight: 600 }}>Completed</div>
+                    <div style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--primary-emerald)' }}>{cycle.totalCompleted}</div>
                   </div>
-
-                  <div style={{ background: 'rgba(255, 255, 255, 0.03)', padding: '8px', borderRadius: 'var(--radius-sm)' }}>
-                    <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)' }}>Returned</div>
-                    <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--accent-amber)' }}>
-                      {cycle.totalReturned}
-                    </div>
+                  <div>
+                    <div style={{ fontSize: '0.675rem', color: 'var(--text-dim)', textTransform: 'uppercase', fontWeight: 600 }}>Returned</div>
+                    <div style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--accent-amber)' }}>{cycle.totalReturned}</div>
                   </div>
-
-                  <div style={{ background: 'rgba(255, 255, 255, 0.03)', padding: '8px', borderRadius: 'var(--radius-sm)' }}>
-                    <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)' }}>Net Earning</div>
-                    <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-main)' }}>
-                      ₹{cycle.totalEarning.toLocaleString('en-IN')}
-                    </div>
+                  <div>
+                    <div style={{ fontSize: '0.675rem', color: 'var(--text-dim)', textTransform: 'uppercase', fontWeight: 600 }}>Net Earning</div>
+                    <div style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-main)' }}>₹{cycle.totalEarning.toLocaleString('en-IN')}</div>
                   </div>
                 </div>
 
                 {cycle.pendingCount > 0 && (
                   <div style={{
+                    background: 'rgba(245, 158, 11, 0.12)',
+                    border: '1px solid rgba(245, 158, 11, 0.3)',
+                    borderRadius: 'var(--radius-sm)',
+                    padding: '8px 10px',
                     fontSize: '0.725rem',
                     color: 'var(--accent-amber)',
-                    background: 'rgba(245, 158, 11, 0.08)',
-                    border: '1px solid rgba(245, 158, 11, 0.2)',
-                    borderRadius: 'var(--radius-sm)',
-                    padding: '6px 10px',
                     marginBottom: '12px',
                     textAlign: 'center'
                   }}>
@@ -186,24 +190,36 @@ export const PayoutCyclesSection: React.FC<PayoutCyclesSectionProps> = ({ user, 
                   </span>
                 </div>
 
-                {isCycleCompleted ? (
-                  <button
-                    onClick={() => handleDownloadPDF(cycle)}
-                    className="cyber-button-primary"
-                    style={{
-                      width: '100%',
-                      minHeight: '42px',
-                      fontSize: '0.875rem',
-                      background: 'linear-gradient(135deg, var(--primary-teal), var(--primary-cyan))',
-                      boxShadow: '0 4px 14px rgba(6, 182, 212, 0.3)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '6px'
-                    }}
-                  >
-                    <Download size={16} /> Download Official PDF Report
-                  </button>
+                {canDownloadPDF ? (
+                  <div>
+                    <button
+                      onClick={() => handleDownloadPDF(cycle)}
+                      className="cyber-button-primary"
+                      style={{
+                        width: '100%',
+                        minHeight: '42px',
+                        fontSize: '0.875rem',
+                        background: 'linear-gradient(135deg, var(--primary-teal), var(--primary-cyan))',
+                        boxShadow: '0 4px 14px rgba(6, 182, 212, 0.3)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <Download size={16} /> Download Official PDF Report
+                    </button>
+                    <div style={{
+                      fontSize: '0.675rem',
+                      color: 'var(--primary-emerald)',
+                      textAlign: 'center',
+                      marginTop: '6px',
+                      fontWeight: 600
+                    }}>
+                      ✅ All submitted reports in this cycle verified by Admin. Official PDF statement unlocked.
+                    </div>
+                  </div>
                 ) : (
                   <div>
                     <button
@@ -222,17 +238,17 @@ export const PayoutCyclesSection: React.FC<PayoutCyclesSectionProps> = ({ user, 
                         color: 'var(--text-muted)',
                         borderColor: 'var(--border-glass)'
                       }}
-                      title={`PDF report is locked. Available after ${cycle.endDate} when cycle ends.`}
+                      title="PDF report download is strictly locked until all submitted reports in this cycle are audited and verified by Admin."
                     >
-                      <Lock size={15} /> PDF Download Locked (Unlocks after {cycle.cycleType === 'A' ? '15th' : 'End of Month'})
+                      <Lock size={15} /> PDF Download Locked ({cycle.pendingCount > 0 ? `${cycle.pendingCount} Unverified Report${cycle.pendingCount === 1 ? '' : 's'}` : 'Awaiting Admin Verification'})
                     </button>
                     <div style={{
                       fontSize: '0.675rem',
                       color: 'var(--text-dim)',
                       textAlign: 'center',
-                      marginTop: '4px'
+                      marginTop: '6px'
                     }}>
-                      🔒 Official PDF statement compiles after cycle completion ({cycle.endDate}).
+                      🔒 PDF statement strictly locked until ALL submitted reports in this cycle are audited & verified by Admin.
                     </div>
                   </div>
                 )}

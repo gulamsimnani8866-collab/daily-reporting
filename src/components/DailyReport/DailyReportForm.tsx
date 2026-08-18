@@ -12,6 +12,7 @@ import { processScreenshotOCR, type OCRResult } from '../../services/ocr';
 import { ImageUploader } from '../OCR/ImageUploader';
 import { OCRProcessor } from '../OCR/OCRProcessor';
 import { VerificationCard } from '../OCR/VerificationCard';
+import { formatDateDDMMYYYY } from '../../utils/dateFormatter';
 
 interface DailyReportFormProps {
   user: UserProfile;
@@ -73,16 +74,16 @@ export const DailyReportForm: React.FC<DailyReportFormProps> = ({ user, onReport
     }
   }, [successDetails]);
 
+  const refreshExistingReport = (targetDate: string) => {
+    FirebaseService.getDailyReports(user.uid).then(reports => {
+      const match = reports.find(r => r.date === targetDate);
+      setExistingReport(match || null);
+    });
+  };
+
   // Check existing reports for date duplicate detection
   useEffect(() => {
-    FirebaseService.getDailyReports(user.uid).then(reports => {
-      const match = reports.find(r => r.date === date);
-      if (match) {
-        setExistingReport(match);
-      } else {
-        setExistingReport(null);
-      }
-    });
+    refreshExistingReport(date);
   }, [date, user.uid]);
 
   // Handle Screenshot Upload & Trigger Tesseract OCR Scanning
@@ -131,6 +132,13 @@ export const DailyReportForm: React.FC<DailyReportFormProps> = ({ user, onReport
   }) => {
     setErrorMsg(null);
     setOcrSubmitError(null);
+
+    // Duplicate date guard check
+    if (existingReport && existingReport.status !== 'rejected') {
+      setOcrSubmitError(`A report for ${date} has already been submitted (${existingReport.status.toUpperCase()}). You cannot create duplicate reports for the same date.`);
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -151,6 +159,10 @@ export const DailyReportForm: React.FC<DailyReportFormProps> = ({ user, onReport
         ocrRawText: ocrResult?.rawText,
         isAbsent: false
       }, user);
+
+      // Immediately set existingReport to lock the date instantly
+      setExistingReport(report);
+      refreshExistingReport(date);
 
       confetti({
         particleCount: 75,
@@ -188,9 +200,21 @@ export const DailyReportForm: React.FC<DailyReportFormProps> = ({ user, onReport
     setErrorMsg(null);
     setSuccessDetails(null);
 
+    try {
+      const reports = await FirebaseService.getDailyReports(user.uid);
+      const existing = reports.find(r => r.date === absentDate && r.status !== 'rejected');
+      if (existing) {
+        setErrorMsg(`A report for ${absentDate} has already been submitted (${existing.status.toUpperCase()}). You cannot create duplicate reports for the same date.`);
+        setShowAbsentModal(false);
+        return;
+      }
+    } catch (e) {
+      console.warn('Absent report duplicate check error:', e);
+    }
+
     setIsSubmitting(true);
     try {
-      await StorageService.saveDailyReport({
+      const { report } = await StorageService.saveDailyReport({
         uid: user.uid,
         date: absentDate,
         totalParcels: 0,
@@ -199,6 +223,9 @@ export const DailyReportForm: React.FC<DailyReportFormProps> = ({ user, onReport
         notes: `ABSENT: ${absentReason}`,
         isAbsent: true
       }, user);
+
+      setExistingReport(report);
+      refreshExistingReport(absentDate);
 
       const nowTimeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
@@ -513,16 +540,15 @@ export const DailyReportForm: React.FC<DailyReportFormProps> = ({ user, onReport
               ? 'var(--primary-emerald)'
               : (existingReport.status === 'rejected' ? 'var(--accent-rose)' : 'var(--accent-amber)')
           }} />
+
           <div>
             <div style={{ fontWeight: 700, color: 'var(--text-main)', marginBottom: '2px' }}>
-              Report Already Submitted for {date} ({existingReport.status.toUpperCase()})
+              Report Already Submitted for {formatDateDDMMYYYY(date)} ({existingReport.status.toUpperCase()})
             </div>
             <div style={{ color: 'var(--text-muted)', fontSize: '0.775rem' }}>
-              {isLocked
-                ? `A verified shift entry already exists for ${date}. You cannot submit multiple reports for the same date. Please select a different date to submit a new report.`
-                : (existingReport.status === 'rejected'
-                  ? `Your previous report for ${date} was rejected by Admin. Reason: "${existingReport.rejectionReason || 'Incorrect details'}". You can correct and resubmit below.`
-                  : `A report for ${date} is already logged. You are currently editing the existing entry.`)}
+              {existingReport.status === 'rejected'
+                ? `Your previous report for ${formatDateDDMMYYYY(date)} was rejected by Admin. Reason: "${existingReport.rejectionReason || 'Incorrect details'}". Please update your parcel numbers and resubmit.`
+                : `A report for ${formatDateDDMMYYYY(date)} has already been logged (${existingReport.status.toUpperCase()}). You cannot submit multiple reports for the same date. To modify an existing report, please use the Edit button in the Work Shift History table below.`}
             </div>
           </div>
         </div>
@@ -535,7 +561,7 @@ export const DailyReportForm: React.FC<DailyReportFormProps> = ({ user, onReport
           onImageSelected={handleImageSelected}
           selectedImage={ocrFile}
           onClearImage={handleClearImage}
-          disabled={isSubmitting || isScanningOCR || isLocked}
+          disabled={isSubmitting || isScanningOCR || (!!existingReport && existingReport.status !== 'rejected')}
         />
 
         {/* Step 2: OCR Scanning Animation */}

@@ -62,23 +62,6 @@ const MainApp: React.FC = () => {
     setActiveMobileTab(tab);
     if (tab === 'profile') {
       setShowProfileModal(true);
-      return;
-    }
-
-    const sectionIdMap: Record<MobileTab, string | null> = {
-      dashboard: 'stats-section',
-      report: 'report-section',
-      payouts: 'payouts-section',
-      history: 'history-section',
-      profile: null
-    };
-
-    const targetId = sectionIdMap[tab];
-    if (targetId) {
-      const el = document.getElementById(targetId);
-      if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
     }
   };
 
@@ -98,7 +81,10 @@ const MainApp: React.FC = () => {
         {/* 1. Admin Rejected Alert Message Bar (Upper Top below Header) */}
         <RejectedAlertBanner
           reports={reports}
-          onSelectReportToEdit={(date) => setSelectedEditDate(date)}
+          onSelectReportToEdit={(date) => {
+            setSelectedEditDate(date);
+            setActiveMobileTab('report');
+          }}
         />
 
         {/* 2. Welcome Header Banner */}
@@ -121,7 +107,7 @@ const MainApp: React.FC = () => {
         </div>
 
         {/* 3. Daily Report Entry Form */}
-        <div id="report-section" style={{ marginBottom: '20px' }}>
+        <div id="report-section" className={`mobile-tab-section ${activeMobileTab === 'report' ? 'active-mobile-tab' : ''}`} style={{ marginBottom: '20px' }}>
           <DailyReportForm
             user={user!}
             onReportSubmitted={loadData}
@@ -130,21 +116,24 @@ const MainApp: React.FC = () => {
         </div>
 
         {/* 4. Stats Dashboard Section */}
-        <div id="stats-section" style={{ marginBottom: '10px' }}>
+        <div id="stats-section" className={`mobile-tab-section ${activeMobileTab === 'dashboard' ? 'active-mobile-tab' : ''}`} style={{ marginBottom: '10px' }}>
           <StatsDashboard reports={reports} cycles={cycles} />
         </div>
 
         {/* 5. Report Work History Table & Mobile Cards */}
-        <div style={{ marginBottom: '10px' }}>
+        <div id="history-section" className={`mobile-tab-section ${activeMobileTab === 'history' ? 'active-mobile-tab' : ''}`} style={{ marginBottom: '10px' }}>
           <ReportHistoryTable
             reports={reports}
             onDataChanged={loadData}
-            onSelectReportToEdit={(date) => setSelectedEditDate(date)}
+            onSelectReportToEdit={(date) => {
+              setSelectedEditDate(date);
+              setActiveMobileTab('report');
+            }}
           />
         </div>
 
         {/* 6. Bi-Monthly Payout Statements & Reports Section (Bottom) */}
-        <div id="payouts-section">
+        <div id="payouts-section" className={`mobile-tab-section ${activeMobileTab === 'payouts' ? 'active-mobile-tab' : ''}`}>
           <PayoutCyclesSection user={user!} cycles={cycles} reports={reports} />
         </div>
       </main>

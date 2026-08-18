@@ -456,6 +456,15 @@ h4,
     padding: 8px 10px !important;
     padding-bottom: 72px !important;
   }
+
+  /* Mobile Tabbed Sections: Hide non-active sections on mobile layout only */
+  .mobile-tab-section {
+    display: none;
+  }
+
+  .mobile-tab-section.active-mobile-tab {
+    display: block;
+  }
 }
 
 @media (max-width: 480px) {

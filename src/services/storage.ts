@@ -2,7 +2,7 @@ import type { DailyReport, UserProfile, PayoutCycle, AppNotification } from '../
 import { FirebaseService } from './firebase';
 
 const USERS_KEY = 'delivery_user_profiles';
-const CURRENT_USER_KEY = 'delivery_current_user';
+const CURRENT_USER_KEY = 'dprs_user_session';
 const REPORTS_KEY = 'delivery_daily_reports';
 const NOTIFICATIONS_KEY = 'delivery_notifications';
 
@@ -21,7 +21,7 @@ export function calculateDailyEarnings(completedParcels: number): { rateApplied:
 
 export const StorageService = {
   initStorage() {
-    // Storage initialization - no demo data seeding
+    // Storage initialization
   },
 
   getUsers(): UserProfile[] {
@@ -30,12 +30,13 @@ export const StorageService = {
   },
 
   getCurrentUser(): UserProfile | null {
-    const data = localStorage.getItem(CURRENT_USER_KEY);
+    const data = localStorage.getItem(CURRENT_USER_KEY) || localStorage.getItem('delivery_current_user');
     return data ? JSON.parse(data) : null;
   },
 
   setCurrentUser(user: UserProfile) {
     localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(user));
+    localStorage.setItem('delivery_current_user', JSON.stringify(user));
   },
 
   updateUserStatus(uid: string, status: 'active' | 'suspended') {

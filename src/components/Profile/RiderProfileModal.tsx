@@ -1,6 +1,6 @@
 import React from 'react';
 import type { UserProfile } from '../../types';
-import { User, ShieldCheck, Truck, Phone, Mail, MapPin, Calendar, LogOut, X } from 'lucide-react';
+import { User, ShieldCheck, Phone, Mail, MapPin, Calendar, LogOut, X, Building2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 interface RiderProfileModalProps {
@@ -10,6 +10,10 @@ interface RiderProfileModalProps {
 
 export const RiderProfileModal: React.FC<RiderProfileModalProps> = ({ user, onClose }) => {
   const { logout } = useAuth();
+  const userId = user.userId || user.uid;
+  const mobile = user.mobile || user.phone || 'N/A';
+  const hubName = user.hubName || 'Ahmedabad Central Hub';
+  const company = user.deliveryPartner || 'Flipkart';
 
   return (
     <div style={{
@@ -80,13 +84,13 @@ export const RiderProfileModal: React.FC<RiderProfileModalProps> = ({ user, onCl
           <h3 style={{ fontSize: '1.3rem', fontWeight: 800, color: 'var(--text-main)' }}>
             {user.name}
           </h3>
-          <p style={{ fontSize: '0.8rem', color: 'var(--primary-cyan)', fontWeight: 600, marginTop: '2px' }}>
-            Partner ID: {user.partnerId}
+          <p style={{ fontSize: '0.85rem', color: 'var(--primary-cyan)', fontWeight: 700, marginTop: '2px' }}>
+            User ID: {userId}
           </p>
           <div style={{ display: 'inline-block', marginTop: '6px' }}>
             <span className={`pulse-badge ${user.accountStatus === 'active' ? 'pulse-badge-active' : 'pulse-badge-suspended'}`}>
               <span className="pulse-dot"></span>
-              {user.accountStatus === 'active' ? 'Active Partner' : 'Account Suspended'}
+              {user.accountStatus === 'active' ? 'Active Partner' : 'Account Disabled'}
             </span>
           </div>
         </div>
@@ -101,10 +105,10 @@ export const RiderProfileModal: React.FC<RiderProfileModalProps> = ({ user, onCl
             alignItems: 'center',
             gap: '12px'
           }}>
-            <Truck size={20} color="var(--primary-emerald)" />
+            <Building2 size={20} color="var(--primary-cyan)" />
             <div>
-              <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)', textTransform: 'uppercase' }}>Vehicle Number</div>
-              <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-main)' }}>{user.vehicleNumber}</div>
+              <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)', textTransform: 'uppercase' }}>Delivery Partner Company</div>
+              <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-main)' }}>{company}</div>
             </div>
           </div>
 
@@ -117,10 +121,10 @@ export const RiderProfileModal: React.FC<RiderProfileModalProps> = ({ user, onCl
             alignItems: 'center',
             gap: '12px'
           }}>
-            <MapPin size={20} color="var(--primary-cyan)" />
+            <MapPin size={20} color="#a78bfa" />
             <div>
-              <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)', textTransform: 'uppercase' }}>Delivery City / Zone</div>
-              <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-main)' }}>{user.city}</div>
+              <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)', textTransform: 'uppercase' }}>Designated Hub Name</div>
+              <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-main)' }}>{hubName}</div>
             </div>
           </div>
 
@@ -133,10 +137,10 @@ export const RiderProfileModal: React.FC<RiderProfileModalProps> = ({ user, onCl
             alignItems: 'center',
             gap: '12px'
           }}>
-            <Phone size={20} color="var(--accent-blue)" />
+            <Phone size={20} color="var(--primary-emerald)" />
             <div>
-              <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)', textTransform: 'uppercase' }}>Registered Contact</div>
-              <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-main)' }}>{user.phone}</div>
+              <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)', textTransform: 'uppercase' }}>Mobile Number</div>
+              <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-main)' }}>{mobile}</div>
             </div>
           </div>
 
@@ -167,7 +171,7 @@ export const RiderProfileModal: React.FC<RiderProfileModalProps> = ({ user, onCl
           }}>
             <Calendar size={20} color="var(--primary-teal)" />
             <div>
-              <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)', textTransform: 'uppercase' }}>Onboarding Date</div>
+              <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)', textTransform: 'uppercase' }}>Created At</div>
               <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-main)' }}>{new Date(user.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</div>
             </div>
           </div>
@@ -185,14 +189,14 @@ export const RiderProfileModal: React.FC<RiderProfileModalProps> = ({ user, onCl
         }}>
           <ShieldCheck size={20} color="var(--primary-emerald)" style={{ flexShrink: 0 }} />
           <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-            Realtime Firebase database sync enabled. Changes made by your supervisor are instantly synchronized.
+            Direct Firebase Realtime DB authenticated session active for user node /users/{userId}.
           </div>
         </div>
 
         <button
           onClick={logout}
           className="cyber-button-secondary"
-          style={{ width: '100%', borderColor: 'rgba(244, 63, 94, 0.3)', color: 'var(--accent-rose)' }}
+          style={{ width: '100%', borderColor: 'rgba(244, 63, 94, 0.3)', color: 'var(--accent-rose)', justifyContent: 'center' }}
         >
           <LogOut size={18} /> Sign Out of Account
         </button>

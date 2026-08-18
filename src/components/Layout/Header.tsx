@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { Truck, Bell, LogOut, User } from 'lucide-react';
+import { Truck, Bell, LogOut, User, MapPin, Building2, ShieldCheck } from 'lucide-react';
 import { NotificationDrawer } from './NotificationDrawer';
 import { RiderProfileModal } from '../Profile/RiderProfileModal';
 
@@ -21,22 +21,26 @@ export const Header: React.FC<HeaderProps> = ({ onOpenProfile }) => {
     }
   };
 
+  const userId = user?.userId || user?.uid || '100001389287';
+  const hubName = user?.hubName || 'Ahmedabad Central Hub';
+  const company = user?.deliveryPartner || 'Flipkart';
+
   return (
     <header className="mobile-header">
-      <div className="header-container">
-        {/* Brand & Partner ID */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+      <div className="header-container" style={{ flexWrap: 'wrap', gap: '12px' }}>
+        {/* Brand Logo & User Name */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <div
             onClick={handleProfileClick}
             style={{
-              width: '40px',
-              height: '40px',
-              borderRadius: '12px',
+              width: '42px',
+              height: '42px',
+              borderRadius: '14px',
               background: 'linear-gradient(135deg, var(--primary-emerald), var(--primary-teal))',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)',
+              boxShadow: '0 4px 14px rgba(16, 185, 129, 0.35)',
               cursor: 'pointer',
               flexShrink: 0
             }}
@@ -44,27 +48,90 @@ export const Header: React.FC<HeaderProps> = ({ onOpenProfile }) => {
             <Truck size={22} color="#ffffff" />
           </div>
           <div>
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px'
-            }}>
-              <h2 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-main)', lineHeight: 1.2 }}>
-                Delivery Express
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <h2 style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-main)', lineHeight: 1.2 }}>
+                {user?.name || 'Saiyed Aadil'}
               </h2>
-              <span className="pulse-badge pulse-badge-active" style={{ fontSize: '0.6rem', padding: '1px 6px' }}>
-                <span className="pulse-dot"></span> Active
+              <span className="pulse-badge pulse-badge-active" style={{ fontSize: '0.65rem', padding: '2px 7px' }}>
+                <ShieldCheck size={10} style={{ marginRight: '3px' }} /> Active
               </span>
             </div>
-            <p style={{ fontSize: '0.725rem', color: 'var(--text-muted)' }}>
-              <strong style={{ color: 'var(--primary-cyan)' }}>{user?.partnerId || 'Partner'}</strong>{user?.name ? ` • ${user.name.split(' ')[0]}` : ''}
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+              Delivery Partner Portal
             </p>
           </div>
         </div>
 
-        {/* Action Controls */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        {/* Badges: User ID, Delivery Partner Company, Hub Name */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          flexWrap: 'wrap'
+        }}>
+          {/* User ID Badge */}
+          <div 
+            id="user-id-badge"
+            style={{
+              background: 'rgba(16, 185, 129, 0.12)',
+              border: '1px solid rgba(16, 185, 129, 0.3)',
+              borderRadius: '20px',
+              padding: '4px 10px',
+              fontSize: '0.75rem',
+              fontWeight: 700,
+              color: 'var(--primary-emerald)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px'
+            }}
+          >
+            <User size={13} />
+            <span>ID: {userId}</span>
+          </div>
 
+          {/* Company Badge */}
+          <div 
+            id="company-badge"
+            style={{
+              background: 'rgba(6, 182, 212, 0.12)',
+              border: '1px solid rgba(6, 182, 212, 0.3)',
+              borderRadius: '20px',
+              padding: '4px 10px',
+              fontSize: '0.75rem',
+              fontWeight: 700,
+              color: 'var(--primary-cyan)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px'
+            }}
+          >
+            <Building2 size={13} />
+            <span>{company}</span>
+          </div>
+
+          {/* Hub Badge */}
+          <div 
+            id="hub-badge"
+            style={{
+              background: 'rgba(139, 92, 246, 0.12)',
+              border: '1px solid rgba(139, 92, 246, 0.3)',
+              borderRadius: '20px',
+              padding: '4px 10px',
+              fontSize: '0.75rem',
+              fontWeight: 700,
+              color: '#a78bfa',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px'
+            }}
+          >
+            <MapPin size={13} />
+            <span>Hub: {hubName}</span>
+          </div>
+        </div>
+
+        {/* Header Actions */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: 'auto' }}>
           {/* Notifications Trigger */}
           <button
             onClick={() => setShowNotifications(true)}
@@ -106,7 +173,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenProfile }) => {
           <button
             onClick={handleProfileClick}
             className="cyber-button-secondary"
-            title="Rider Profile"
+            title="Partner Profile"
             style={{
               width: '36px',
               height: '36px',
@@ -119,21 +186,23 @@ export const Header: React.FC<HeaderProps> = ({ onOpenProfile }) => {
             <User size={17} color="var(--primary-emerald)" />
           </button>
 
-          {/* Sign Out Button (desktop) */}
+          {/* Logout Button */}
           <button
             onClick={logout}
-            className="cyber-button-secondary desktop-only"
-            title="Sign Out"
+            className="cyber-button-secondary"
+            title="Logout"
             style={{
               height: '36px',
               minHeight: '36px',
-              padding: '0 10px',
+              padding: '0 12px',
               fontSize: '0.775rem',
+              fontWeight: 700,
               color: 'var(--accent-rose)',
-              borderColor: 'rgba(244, 63, 94, 0.2)'
+              borderColor: 'rgba(244, 63, 94, 0.3)',
+              background: 'rgba(244, 63, 94, 0.08)'
             }}
           >
-            <LogOut size={15} /> Sign Out
+            <LogOut size={15} /> Logout
           </button>
         </div>
       </div>
@@ -148,4 +217,3 @@ export const Header: React.FC<HeaderProps> = ({ onOpenProfile }) => {
     </header>
   );
 };
-

@@ -21,118 +21,88 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<UserProfile | null>(() => StorageService.getCurrentUser());
-  const [notifications, setNotifications] = useState<AppNotification[]>(() => StorageService.getNotifications());
+  const [notifications, setNotifications] = useState<AppNotification[]>(() => 
+    StorageService.getNotifications(user?.uid)
+  );
 
   useEffect(() => {
     StorageService.initStorage();
     const currentUser = StorageService.getCurrentUser();
-    setUser(currentUser);
-    setNotifications(StorageService.getNotifications());
-
-    // Subscribe to Firebase Auth changes
-    const unsubAuth = FirebaseService.onAuthChanged(async (fbUser) => {
-      if (fbUser) {
-        const rtdbProfile = await FirebaseService.getUserProfile(fbUser.uid);
-        if (!rtdbProfile) {
-          console.warn('[Security Audit] Unregistered user detected. Revoking access for UID:', fbUser.uid);
-          await FirebaseService.logoutUser();
-          setUser(null);
-          localStorage.removeItem('delivery_current_user');
-          return;
-        }
-        console.log(`[Data Security] Authenticated isolated user scope for UID: ${rtdbProfile.uid}`);
-        StorageService.setCurrentUser(rtdbProfile);
-        setUser(rtdbProfile);
-        setNotifications(StorageService.getNotifications(rtdbProfile.uid));
-      } else {
-        setUser(null);
-        localStorage.removeItem('delivery_current_user');
-      }
-    });
-
-    return () => {
-      unsubAuth();
-    };
+    if (currentUser) {
+      setUser(currentUser);
+      setNotifications(StorageService.getNotifications(currentUser.uid));
+    }
   }, []);
 
   // Realtime Database subscription for user profile updates (e.g. status changes by Admin)
   useEffect(() => {
-    if (!user?.uid) return;
-    const unsubProfile = FirebaseService.subscribeUserProfile(user.uid, (rtdbProfile) => {
+    if (!user?.uid && !user?.userId) return;
+    const activeId = user.userId || user.uid;
+    const unsubProfile = FirebaseService.subscribeUserProfile(activeId, (rtdbProfile) => {
       if (rtdbProfile) {
         setUser(rtdbProfile);
         StorageService.setCurrentUser(rtdbProfile);
       } else {
         // If Admin removed user profile from database, log out user immediately
-        console.warn('[Security Audit] User profile deleted from database by Admin. Logging out UID:', user.uid);
+        console.warn('[Security Audit] User profile deleted from database by Admin. Logging out ID:', activeId);
         logout();
       }
     });
     return () => {
       unsubProfile();
     };
-  }, [user?.uid]);
+  }, [user?.uid, user?.userId]);
 
   const refreshUserData = async () => {
-    if (user?.uid) {
-      const rtdbProfile = await FirebaseService.getUserProfile(user.uid);
+    const activeId = user?.userId || user?.uid;
+    if (activeId) {
+      const rtdbProfile = await FirebaseService.getUserProfile(activeId);
       if (rtdbProfile) {
         setUser(rtdbProfile);
         StorageService.setCurrentUser(rtdbProfile);
       }
-      setNotifications(StorageService.getNotifications(user.uid));
+      setNotifications(StorageService.getNotifications(activeId));
     }
   };
 
-  const login = async (email: string, pass: string): Promise<{ success: boolean; error?: string }> => {
-    const cleanEmail = email.trim().toLowerCase();
-    
-    // 1. Authenticate with Firebase Authentication
-    const fbRes = await FirebaseService.loginUser(cleanEmail, pass);
-    
-    if (!fbRes.user) {
-      return { 
-        success: false, 
-        error: fbRes.error || 'Login Failed: Invalid credentials.' 
-      };
+  const login = async (identityInput: string, pass: string): Promise<{ success: boolean; error?: string }> => {
+    const cleanInput = identityInput.trim();
+    if (!cleanInput || !pass) {
+      return { success: false, error: 'Please enter User ID / Email and Password.' };
     }
 
-    // 2. Fetch profile from Firebase Realtime Database to verify Admin provisioning
-    const rtdbProfile = await FirebaseService.getUserProfile(fbRes.user.uid);
-    
-    if (!rtdbProfile) {
-      // User is not created in the database by Admin -> DENY ACCESS
-      await FirebaseService.logoutUser();
-      console.warn('[Security Audit] Access Denied: User profile missing in database for UID:', fbRes.user.uid);
+    const res = await FirebaseService.loginUser(cleanInput, pass);
+
+    if (!res.user) {
       return {
         success: false,
-        error: 'Access Denied: Your User ID is not registered in the database. Please ask your Admin to assign your account.'
+        error: res.error || 'Invalid User ID or Password'
       };
     }
 
-    if (rtdbProfile.accountStatus === 'suspended') {
-      console.warn('[Security Audit] Access Denied: Account suspended for UID:', fbRes.user.uid);
+    if (res.user.accountStatus === 'disabled' || (res.user as any).accountStatus === 'suspended') {
       return {
         success: false,
-        error: 'Access Denied: Your account has been suspended by the Administrator.'
+        error: 'Your account is disabled. Please contact Admin.'
       };
     }
 
-    console.log(`[Data Security] Login successful. Isolated scope active for User UID: ${rtdbProfile.uid}`);
-    StorageService.setCurrentUser(rtdbProfile);
-    setUser(rtdbProfile);
-    setNotifications(StorageService.getNotifications(rtdbProfile.uid));
+    console.log(`[Data Security] Direct DB Login successful for User ID: ${res.user.userId || res.user.uid}`);
+    StorageService.setCurrentUser(res.user);
+    setUser(res.user);
+    setNotifications(StorageService.getNotifications(res.user.uid));
 
     return { success: true };
   };
 
   const logout = async () => {
-    const currentUid = user?.uid;
+    const currentId = user?.userId || user?.uid;
     await FirebaseService.logoutUser();
     setUser(null);
+    localStorage.removeItem('dprs_user_session');
     localStorage.removeItem('delivery_current_user');
-    if (currentUid) {
-      console.log(`[Data Security] Logged out & purged session scope for User UID: ${currentUid}`);
+    if (currentId) {
+      console.log(`[Data Security] Logged out & purged session scope for User ID: ${currentId}`);
     }
   };
 

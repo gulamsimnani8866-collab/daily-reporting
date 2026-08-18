@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import type { DailyReport } from '../../types';
 import { AlertTriangle, Edit3, X, ChevronRight, AlertCircle } from 'lucide-react';
+import { formatDateDDMMYYYY } from '../../utils/dateFormatter';
 
 interface RejectedAlertBannerProps {
   reports: DailyReport[];
@@ -110,7 +111,7 @@ export const RejectedAlertBanner: React.FC<RejectedAlertBannerProps> = ({ report
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <div style={{ fontSize: '0.875rem', fontWeight: 800, color: 'var(--text-main)' }}>
-                📅 {report.date}
+                📅 {formatDateDDMMYYYY(report.date)}
               </div>
               <div style={{ fontSize: '0.775rem', color: 'var(--text-muted)' }}>
                 • Completed: <strong style={{ color: 'var(--primary-emerald)' }}>{report.completedParcels}</strong> / Returned: <strong style={{ color: 'var(--accent-amber)' }}>{report.returnParcels}</strong>
